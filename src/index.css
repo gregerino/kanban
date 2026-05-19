@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: #f0f2f5;
+}
+
+.sticky-note {
+  background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  transform: rotate(-0.5deg);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+.sticky-note::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 8px 8px 0 0;
+}
+.sticky-note:hover {
+  transform: rotate(0deg) scale(1.02);
+  box-shadow: 4px 6px 16px rgba(0,0,0,0.18);
+}
+.sticky-note.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg) scale(1.05);
+}
+.sticky-orange { background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%); }
+.sticky-blue { background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%); }
+.sticky-green { background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%); }
+.sticky-pink { background: linear-gradient(135deg, #fecdd3 0%, #fda4af 100%); }
+.sticky-purple { background: linear-gradient(135deg, #e9d5ff 0%, #c4b5fd 100%); }
+
+.column-drop-zone { min-height: 80px; transition: background 0.2s; }
+.column-drop-zone.drag-over { background: rgba(99,102,241,0.08); border: 2px dashed #6366f1; border-radius: 12px; }
+
+.modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
