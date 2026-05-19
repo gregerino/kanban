@@ -8,11 +8,12 @@ export default function QuickAddTask({ storyId, status, onAdd }) {
 
   useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
 
-  const add = () => {
+  const add = (keepOpen) => {
     if (!title.trim()) return;
-    onAdd({ id: uid(), storyId, title: title.trim(), status, priority: '', assignee: '', labels: [], deadline: '', color: 'sticky-note', comments: [] });
+    onAdd({ id: uid(), storyId, title: title.trim(), status, priority: '', labels: [], deadline: '', color: '#fde68a', comments: [], checklist: [], notes: '', files: [] });
     setTitle('');
-    setOpen(false);
+    if (!keepOpen) setOpen(false);
+    else setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   if (!open) return (
@@ -24,9 +25,9 @@ export default function QuickAddTask({ storyId, status, onAdd }) {
 
   return (
     <div className="sticky-note rounded-xl p-3">
-      <input ref={inputRef} value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title..." className="w-full bg-transparent text-sm outline-none placeholder-gray-400" onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setOpen(false); }} />
+      <input ref={inputRef} value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title..." className="w-full bg-transparent text-sm outline-none placeholder-gray-400" onKeyDown={e => { if (e.key === 'Enter') add(true); if (e.key === 'Escape') setOpen(false); }} />
       <div className="flex gap-2 mt-2">
-        <button onClick={add} className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600">Add</button>
+        <button onClick={() => add(false)} className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600">Add</button>
         <button onClick={() => setOpen(false)} className="px-3 py-1 text-gray-500 text-xs hover:text-gray-700">Cancel</button>
       </div>
     </div>

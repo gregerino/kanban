@@ -10,34 +10,42 @@ body {
   background: #f0f2f5;
 }
 
-.sticky-note {
-  background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
-  box-shadow: 2px 3px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
-  transform: rotate(-0.5deg);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+.sticky-card {
   position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow:
+    2px 3px 6px rgba(0,0,0,0.16),
+    0 1px 3px rgba(0,0,0,0.10);
 }
-.sticky-note::before {
+/* Folded corner bottom-right */
+.sticky-card::after {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 6px;
-  background: rgba(0,0,0,0.06);
-  border-radius: 8px 8px 0 0;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(225deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.02) 40%, transparent 40%);
+  border-radius: 0;
+  pointer-events: none;
 }
-.sticky-note:hover {
-  transform: rotate(0deg) scale(1.02);
-  box-shadow: 4px 6px 16px rgba(0,0,0,0.18);
+.sticky-card:hover {
+  transform: rotate(0deg) scale(1.03) !important;
+  box-shadow:
+    4px 6px 14px rgba(0,0,0,0.20),
+    0 2px 4px rgba(0,0,0,0.12) !important;
 }
-.sticky-note.dragging {
+.sticky-card.dragging {
   opacity: 0.5;
-  transform: rotate(2deg) scale(1.05);
+  transform: rotate(2deg) scale(1.05) !important;
 }
-.sticky-orange { background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%); }
-.sticky-blue { background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%); }
-.sticky-green { background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%); }
-.sticky-pink { background: linear-gradient(135deg, #fecdd3 0%, #fda4af 100%); }
-.sticky-purple { background: linear-gradient(135deg, #e9d5ff 0%, #c4b5fd 100%); }
+
+/* Legacy class kept for QuickAddTask input card */
+.sticky-note {
+  background: linear-gradient(175deg, #fef9c3 0%, #fde68a 100%);
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  position: relative;
+}
 
 .column-drop-zone { min-height: 80px; transition: background 0.2s; }
 .column-drop-zone.drag-over { background: rgba(99,102,241,0.08); border: 2px dashed #6366f1; border-radius: 12px; }

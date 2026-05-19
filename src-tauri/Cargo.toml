@@ -1,0 +1,17 @@
+[package]
+name = "scrum-board"
+version = "1.0.0"
+description = "A modern Scrum/Kanban board"
+authors = ["Marcus"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"

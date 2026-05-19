@@ -1,72 +1,162 @@
-import { useState, useEffect, useMemo } from 'react';
-import { loadData, saveData } from './utils/storage';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { loadBoards, loadActiveId, saveBoards, saveActiveId, createEmptyBoard } from './utils/storage';
 import { uid } from './utils/helpers';
 import StickyNote from './components/StickyNote';
 import StoryCard from './components/StoryCard';
 import TaskDetailModal from './components/TaskDetailModal';
 import StoryModal from './components/StoryModal';
-import BoxModal from './components/BoxModal';
 import QuickAddTask from './components/QuickAddTask';
-import FilterBar from './components/FilterBar';
 import LabelManagerModal from './components/LabelManagerModal';
-import PeopleManagerModal from './components/PeopleManagerModal';
-import IconButton from './components/IconButton';
+import SettingsModal from './components/SettingsModal';
+import NotificationCenter from './components/NotificationCenter';
+import BrainDumpPanel from './components/BrainDumpPanel';
+import AnalyticsModal from './components/AnalyticsModal';
+import UpdateChecker from './components/UpdateChecker';
 
 export default function App() {
-  const [data, setData] = useState(loadData);
-  const [filters, setFilters] = useState({ assignee: '', status: '', priority: '', label: '' });
+  const [boards, setBoards] = useState(loadBoards);
+  const [activeId, setActiveId] = useState(() => {
+    const saved = loadActiveId();
+    const bs = loadBoards();
+    return saved && bs.find(b => b.id === saved) ? saved : bs[0]?.id;
+  });
+  const [filters, setFilters] = useState({ status: '', priority: '', label: '' });
   const [draggingId, setDraggingId] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
   const [storyModal, setStoryModal] = useState({ open: false, story: null });
-  const [boxModal, setBoxModal] = useState({ open: false, box: null });
   const [labelModal, setLabelModal] = useState(false);
-  const [peopleModal, setPeopleModal] = useState(false);
+  const [settingsModal, setSettingsModal] = useState(false);
+  const [analyticsModal, setAnalyticsModal] = useState(false);
   const [collapsedStories, setCollapsedStories] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const [renamingBoard, setRenamingBoard] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [sidebarTab, setSidebarTab] = useState('stories'); // 'stories' | 'braindump'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
-  useEffect(() => { saveData(data); }, [data]);
+  // Refs for scrolling to stories
+  const storyRowRefs = useRef({});
+  const mainRef = useRef(null);
 
-  const updateData = (fn) => setData(d => fn(d));
+  const data = boards.find(b => b.id === activeId) || boards[0];
 
-  const saveStory = (story) => updateData(d => {
+  useEffect(() => { saveBoards(boards); }, [boards]);
+  useEffect(() => { saveActiveId(activeId); }, [activeId]);
+
+  const updateBoard = (fn) => setBoards(bs => bs.map(b => b.id === activeId ? fn(b) : b));
+
+  // Board management
+  const addBoard = () => {
+    const b = createEmptyBoard('New Board');
+    setBoards(bs => [...bs, b]);
+    setActiveId(b.id);
+    setBoardMenuOpen(false);
+  };
+  const deleteBoard = (id) => {
+    if (boards.length <= 1) return;
+    setBoards(bs => bs.filter(b => b.id !== id));
+    if (activeId === id) setActiveId(boards.find(b => b.id !== id)?.id);
+    setBoardMenuOpen(false);
+  };
+  const startRename = (b) => { setRenamingBoard(b.id); setRenameValue(b.name); };
+  const finishRename = () => {
+    if (renameValue.trim()) {
+      setBoards(bs => bs.map(b => b.id === renamingBoard ? { ...b, name: renameValue.trim() } : b));
+    }
+    setRenamingBoard(null);
+  };
+
+  const switchBoard = (id) => { setActiveId(id); setBoardMenuOpen(false); setFilters({ status: '', priority: '', label: '' }); setCollapsedStories({}); };
+
+  // Story CRUD
+  const saveStory = (story) => updateBoard(d => {
     const idx = d.stories.findIndex(s => s.id === story.id);
     const stories = [...d.stories];
     if (idx >= 0) stories[idx] = story; else stories.push(story);
     return { ...d, stories };
   });
-  const deleteStory = (id) => updateData(d => ({
+  const deleteStory = (id) => updateBoard(d => ({
     ...d,
     stories: d.stories.filter(s => s.id !== id),
     tasks: d.tasks.filter(t => t.storyId !== id),
   }));
 
-  const saveTask = (task) => updateData(d => {
+  // Task CRUD
+  const saveTask = (task) => updateBoard(d => {
     const idx = d.tasks.findIndex(t => t.id === task.id);
     const tasks = [...d.tasks];
     if (idx >= 0) tasks[idx] = task; else tasks.push(task);
     return { ...d, tasks };
   });
-  const deleteTask = (id) => updateData(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }));
-  const addTask = (task) => updateData(d => ({ ...d, tasks: [...d.tasks, task] }));
-
-  const saveBox = (box) => updateData(d => {
-    const idx = d.boxes.findIndex(b => b.id === box.id);
-    const boxes = [...d.boxes];
-    if (idx >= 0) boxes[idx] = box; else boxes.push(box);
-    return { ...d, boxes };
-  });
-  const deleteBox = (id) => updateData(d => ({
+  const deleteTask = (id) => updateBoard(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }));
+  const addTask = (task) => updateBoard(d => ({ ...d, tasks: [...d.tasks, task] }));
+  const toggleCheckItem = (taskId, checkId) => updateBoard(d => ({
     ...d,
-    boxes: d.boxes.filter(b => b.id !== id),
-    stories: d.stories.map(s => s.boxId === id ? { ...s, boxId: '' } : s),
+    tasks: d.tasks.map(t => t.id === taskId ? { ...t, checklist: (t.checklist || []).map(c => c.id === checkId ? { ...c, done: !c.done } : c) } : t),
   }));
 
+  const saveColumns = (newColumns) => {
+    updateBoard(d => {
+      const oldCols = d.columns;
+      const tasks = d.tasks.map(t => {
+        const idx = oldCols.indexOf(t.status);
+        if (idx >= 0 && idx < newColumns.length && oldCols[idx] !== newColumns[idx]) {
+          return { ...t, status: newColumns[idx] };
+        }
+        return t;
+      });
+      return { ...d, columns: newColumns, tasks };
+    });
+  };
+
+  // Brain dump
+  const saveBrainDumpLists = (lists) => updateBoard(d => ({ ...d, brainDumpLists: lists }));
+
+  // Board icon
+  const saveBoardIcon = (icon) => updateBoard(d => ({ ...d, icon }));
+
+  // Drag and drop
   const handleDrop = (e, storyId, status) => {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
+
+    // Check if this is a brain dump item drop
+    const brainDumpData = e.dataTransfer.getData('application/braindump');
+    if (brainDumpData) {
+      try {
+        const { text, listId, itemId } = JSON.parse(brainDumpData);
+        // Create a new task from the brain dump item
+        const newTask = {
+          id: uid(),
+          title: text,
+          status,
+          storyId,
+          priority: '',
+          labels: [],
+          deadline: '',
+          checklist: [],
+          notes: '',
+          files: [],
+          comments: [],
+          color: '',
+        };
+        updateBoard(d => ({
+          ...d,
+          tasks: [...d.tasks, newTask],
+          // Remove the item from the brain dump list
+          brainDumpLists: (d.brainDumpLists || []).map(l =>
+            l.id === listId ? { ...l, items: l.items.filter(i => i.id !== itemId) } : l
+          ),
+        }));
+      } catch (err) { /* ignore parse errors */ }
+      return;
+    }
+
     const taskId = e.dataTransfer.getData('text/plain');
     if (!taskId) return;
-    updateData(d => ({
+    updateBoard(d => ({
       ...d,
       tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
     }));
@@ -77,7 +167,6 @@ export default function App() {
 
   const filteredTasks = useMemo(() => {
     return data.tasks.filter(t => {
-      if (filters.assignee && t.assignee !== filters.assignee) return false;
       if (filters.status && t.status !== filters.status) return false;
       if (filters.priority && t.priority !== filters.priority) return false;
       if (filters.label && !t.labels?.includes(filters.label)) return false;
@@ -85,38 +174,176 @@ export default function App() {
     });
   }, [data.tasks, filters]);
 
-  const storiesByBox = useMemo(() => {
-    const groups = {};
-    const noBox = data.stories.filter(s => !s.boxId);
-    if (noBox.length > 0) groups['__none__'] = noBox;
-    data.boxes.forEach(b => {
-      const stories = data.stories.filter(s => s.boxId === b.id);
-      groups[b.id] = stories;
-    });
-    return groups;
-  }, [data.stories, data.boxes]);
+  // Search
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return data.tasks.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.checklist || []).some(c => c.text.toLowerCase().includes(q)) ||
+      (t.comments || []).some(c => c.text.toLowerCase().includes(q))
+    );
+  }, [data.tasks, searchQuery]);
 
   const toggleStoryCollapse = (id) => setCollapsedStories(c => ({ ...c, [id]: !c[id] }));
+
+  // Scroll to story row when clicking in sidebar
+  const scrollToStory = useCallback((storyId) => {
+    // Uncollapse the story if collapsed
+    setCollapsedStories(c => ({ ...c, [storyId]: false }));
+    setTimeout(() => {
+      const el = storyRowRefs.current[storyId];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, []);
+
+  // Build story color map for task cards
+  const storyColorMap = useMemo(() => {
+    const map = {};
+    data.stories.forEach(s => {
+      if (s.color && !s.color.startsWith('bg-')) map[s.id] = s.color;
+    });
+    return map;
+  }, [data.stories]);
+
+  const STORY_ROW_COLORS = [
+    'bg-indigo-50/70 border-indigo-200',
+    'bg-emerald-50/70 border-emerald-200',
+    'bg-amber-50/70 border-amber-200',
+    'bg-rose-50/70 border-rose-200',
+    'bg-cyan-50/70 border-cyan-200',
+    'bg-purple-50/70 border-purple-200',
+  ];
+
+  // Board icon display
+  const boardIcon = data.icon || '';
+  const isEmojiIcon = boardIcon && !boardIcon.startsWith('data:');
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(s => !s)} className="p-1.5 rounded-lg hover:bg-gray-100">
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+            {/* Board icon — click opens settings on General tab */}
+            <button onClick={() => setSettingsModal(true)} className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer" style={!boardIcon ? { background: '#6366f1' } : isEmojiIcon ? { background: '#f3f4f6' } : undefined} title="Change board icon">
+              {boardIcon ? (
+                isEmojiIcon ? (
+                  <span className="text-lg">{boardIcon}</span>
+                ) : (
+                  <img src={boardIcon} alt="" className="w-8 h-8 object-cover rounded-lg" />
+                )
+              ) : (
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+              )}
+            </button>
+            {/* Board switcher */}
+            <div className="relative">
+              <button onClick={() => setBoardMenuOpen(o => !o)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+                <h1 className="text-lg font-bold text-gray-800">{data.name}</h1>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              {boardMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => { setBoardMenuOpen(false); setRenamingBoard(null); }} />
+                  <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[220px] py-1">
+                    {boards.map(b => (
+                      <div key={b.id} className={`flex items-center gap-2 px-3 py-2 ${b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                        {b.icon && <span className="text-sm">{b.icon.startsWith('data:') ? '🖼️' : b.icon}</span>}
+                        {renamingBoard === b.id ? (
+                          <input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onBlur={finishRename}
+                            onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setRenamingBoard(null); }}
+                            className="flex-1 px-2 py-0.5 border border-indigo-300 rounded text-sm outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <>
+                            <button onClick={() => switchBoard(b.id)} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
+                            <button onClick={() => startRename(b)} className="p-1 rounded hover:bg-gray-200" title="Rename">
+                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                            </button>
+                            {boards.length > 1 && (
+                              <button onClick={() => deleteBoard(b.id)} className="p-1 rounded hover:bg-red-100" title="Delete">
+                                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button onClick={addBoard} className="w-full px-3 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50 text-left flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                        New Board
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-            <h1 className="text-lg font-bold text-gray-800">Scrum Board</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setPeopleModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-            Team
+          {/* Search */}
+          <div className="relative">
+            <button onClick={() => setSearchOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-gray-100" title="Search tasks">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </button>
+            {searchOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} />
+                <div className="absolute right-0 top-full mt-2 z-40 bg-white rounded-xl shadow-xl border border-gray-100 w-80">
+                  <div className="p-3">
+                    <input
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search tasks..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                      autoFocus
+                    />
+                  </div>
+                  {searchQuery.trim() && (
+                    <div className="border-t border-gray-100 max-h-64 overflow-y-auto">
+                      {searchResults.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">No results found</p>
+                      ) : (
+                        searchResults.map(t => {
+                          const story = data.stories.find(s => s.id === t.storyId);
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => { setDetailTask(t); setSearchOpen(false); setSearchQuery(''); }}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
+                            >
+                              <p className="text-sm font-medium text-gray-800 truncate">{t.title}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{story?.title || 'Unknown story'} · {t.status}</p>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <NotificationCenter tasks={data.tasks} onOpenTask={setDetailTask} />
+
+          <button onClick={() => setAnalyticsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Analytics">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Analytics
+          </button>
+          <button onClick={() => setSettingsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Settings
           </button>
           <button onClick={() => setLabelModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
@@ -125,59 +352,52 @@ export default function App() {
         </div>
       </header>
 
-      <FilterBar filters={filters} setFilters={setFilters} people={data.people} labels={data.labels} columns={data.columns} />
-
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200`}>
-          <div className="p-4 space-y-4" style={{ minWidth: '18rem' }}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Boxes / Sections</span>
-              <button onClick={() => setBoxModal({ open: true, box: null })} className="p-1 rounded hover:bg-gray-100">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col`}>
+          <div className="p-4 flex flex-col flex-1" style={{ minWidth: '18rem' }}>
+            {/* Sidebar tabs */}
+            <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setSidebarTab('stories')}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${sidebarTab === 'stories' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Stories
+              </button>
+              <button
+                onClick={() => setSidebarTab('braindump')}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${sidebarTab === 'braindump' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Brain Dump
               </button>
             </div>
-            {data.boxes.map(box => (
-              <div key={box.id} className="rounded-xl border-2 p-3 mb-3" style={{ borderColor: box.color }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold" style={{ color: box.color }}>{box.name}</span>
-                  <IconButton onClick={() => setBoxModal({ open: true, box })} title="Edit box">
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                  </IconButton>
-                </div>
-                {(storiesByBox[box.id] || []).map(story => (
-                  <div key={story.id} className="mb-2">
-                    <StoryCard story={story} tasks={data.tasks} onEdit={(s) => setStoryModal({ open: true, story: s })} onDelete={deleteStory} />
-                  </div>
-                ))}
-                <button onClick={() => setStoryModal({ open: true, story: { _preset: box.id } })} className="w-full py-1.5 text-xs text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">+ Add Story</button>
-              </div>
-            ))}
 
-            {storiesByBox['__none__'] && (
-              <div>
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Stories</span>
-                {storiesByBox['__none__'].map(story => (
-                  <div key={story.id} className="mt-2">
-                    <StoryCard story={story} tasks={data.tasks} onEdit={(s) => setStoryModal({ open: true, story: s })} onDelete={deleteStory} />
+            {sidebarTab === 'stories' ? (
+              <div className="space-y-3 flex-1">
+                {data.stories.map(story => (
+                  <div key={story.id}>
+                    <StoryCard story={story} tasks={data.tasks} onEdit={(s) => setStoryModal({ open: true, story: s })} onDelete={deleteStory} onClick={() => scrollToStory(story.id)} />
                   </div>
                 ))}
+                <button onClick={() => setStoryModal({ open: true, story: null })} className="w-full py-2.5 text-sm text-indigo-500 font-medium hover:bg-indigo-50 rounded-xl transition-colors flex items-center justify-center gap-1 border-2 border-dashed border-indigo-200">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                  New Story
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0">
+                <BrainDumpPanel lists={data.brainDumpLists || []} onSave={saveBrainDumpLists} />
               </div>
             )}
-
-            <button onClick={() => setStoryModal({ open: true, story: null })} className="w-full py-2.5 text-sm text-indigo-500 font-medium hover:bg-indigo-50 rounded-xl transition-colors flex items-center justify-center gap-1 border-2 border-dashed border-indigo-200">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-              New Story
-            </button>
           </div>
         </aside>
 
         {/* Board */}
-        <main className="flex-1 overflow-x-auto overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-x-auto overflow-y-auto" style={data.backgroundImage ? { backgroundImage: `url(${data.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
           <div className="min-w-max p-4">
-            <div className="flex gap-4 mb-4">
+            <div className="flex gap-0 mb-0">
               {data.columns.map(col => (
-                <div key={col} className="w-64 shrink-0">
+                <div key={col} className="w-64 shrink-0 px-2">
                   <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-700">{col}</h3>
                     <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
@@ -188,46 +408,56 @@ export default function App() {
               ))}
             </div>
 
-            {data.stories.map(story => {
+            {data.stories.map((story, storyIdx) => {
               const storyFilteredTasks = filteredTasks.filter(t => t.storyId === story.id);
               const collapsed = collapsedStories[story.id];
+              const rowColor = STORY_ROW_COLORS[storyIdx % STORY_ROW_COLORS.length];
+              const storyHexColor = storyColorMap[story.id];
 
-              if (filters.status && storyFilteredTasks.length === 0 && !filters.assignee && !filters.priority && !filters.label) return null;
+              if (filters.status && storyFilteredTasks.length === 0 && !filters.priority && !filters.label) return null;
 
               return (
-                <div key={story.id} className="mb-3">
+                <div
+                  key={story.id}
+                  ref={el => storyRowRefs.current[story.id] = el}
+                  className={`mt-3 rounded-2xl border ${rowColor} overflow-hidden`}
+                  style={storyHexColor ? { borderColor: storyHexColor + '40', background: storyHexColor + '0a' } : undefined}
+                >
                   <button
                     onClick={() => toggleStoryCollapse(story.id)}
-                    className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg hover:bg-white/60 transition-colors group"
+                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-white/40 transition-colors text-left"
                   >
                     <svg className={`w-4 h-4 text-gray-400 transition-transform ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
-                    <div className={`w-3 h-3 rounded-full ${story.color}`} />
-                    <span className="text-sm font-medium text-gray-700">{story.title}</span>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={storyHexColor ? { background: storyHexColor } : undefined} />
+                    <span className="text-sm font-semibold text-gray-700">{story.title}</span>
                     <span className="text-xs text-gray-400">({storyFilteredTasks.length} tasks)</span>
                   </button>
 
                   {!collapsed && (
-                    <div className="flex gap-4">
+                    <div className="flex">
                       {data.columns.map(col => {
                         const colTasks = storyFilteredTasks.filter(t => t.status === col);
                         return (
                           <div
                             key={col}
-                            className="w-64 shrink-0 column-drop-zone rounded-xl p-2"
+                            className="w-64 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0"
                             onDrop={e => handleDrop(e, story.id, col)}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                           >
-                            <div className="space-y-2">
+                            <div className="grid gap-2" style={{ gridTemplateColumns: colTasks.length >= 3 ? 'repeat(3, 1fr)' : colTasks.length === 2 ? 'repeat(2, 1fr)' : '1fr' }}>
                               {colTasks.map(task => (
-                                <StickyNote
-                                  key={task.id}
-                                  task={task}
-                                  labels={data.labels}
-                                  onOpen={setDetailTask}
-                                  onDragStart={setDraggingId}
-                                  onDragEnd={() => setDraggingId(null)}
-                                />
+                                <div key={task.id}>
+                                  <StickyNote
+                                    task={task}
+                                    labels={data.labels}
+                                    storyColor={storyHexColor}
+                                    onOpen={setDetailTask}
+                                    onDragStart={setDraggingId}
+                                    onDragEnd={() => setDraggingId(null)}
+                                    onToggleCheck={toggleCheckItem}
+                                  />
+                                </div>
                               ))}
                             </div>
                             <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
@@ -249,31 +479,44 @@ export default function App() {
         open={!!detailTask}
         onClose={() => setDetailTask(null)}
         allLabels={data.labels}
-        people={data.people}
         columns={data.columns}
+        customColors={data.customColors || []}
         onSave={saveTask}
         onDelete={deleteTask}
       />
       <StoryModal
-        story={storyModal.story && !storyModal.story._preset ? storyModal.story : null}
+        story={storyModal.story}
         open={storyModal.open}
         onClose={() => setStoryModal({ open: false, story: null })}
-        onSave={(s) => {
-          if (storyModal.story?._preset) s.boxId = storyModal.story._preset;
-          saveStory(s);
-        }}
+        onSave={saveStory}
         onDelete={deleteStory}
-        boxes={data.boxes}
       />
-      <BoxModal
-        box={boxModal.box}
-        open={boxModal.open}
-        onClose={() => setBoxModal({ open: false, box: null })}
-        onSave={saveBox}
-        onDelete={deleteBox}
+      <LabelManagerModal
+        open={labelModal}
+        onClose={() => setLabelModal(false)}
+        labels={data.labels}
+        customColors={data.customColors || []}
+        onSave={(labels) => updateBoard(d => ({ ...d, labels }))}
+        onSaveCustomColors={(customColors) => updateBoard(d => ({ ...d, customColors }))}
       />
-      <LabelManagerModal open={labelModal} onClose={() => setLabelModal(false)} labels={data.labels} onSave={(labels) => updateData(d => ({ ...d, labels }))} />
-      <PeopleManagerModal open={peopleModal} onClose={() => setPeopleModal(false)} people={data.people} onSave={(people) => updateData(d => ({ ...d, people }))} />
+      <SettingsModal
+        open={settingsModal}
+        onClose={() => setSettingsModal(false)}
+        columns={data.columns}
+        onSave={saveColumns}
+        backgroundImage={data.backgroundImage || ''}
+        onSaveBackground={(img) => updateBoard(d => ({ ...d, backgroundImage: img }))}
+        boardIcon={data.icon || ''}
+        onSaveBoardIcon={saveBoardIcon}
+      />
+      <AnalyticsModal
+        open={analyticsModal}
+        onClose={() => setAnalyticsModal(false)}
+        tasks={data.tasks}
+        labels={data.labels}
+        columns={data.columns}
+      />
+      <UpdateChecker />
     </div>
   );
 }
