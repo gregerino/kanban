@@ -6,8 +6,12 @@ function getStoryBarStyle(color) {
   return { style: { background: color } };
 }
 
-export default function StoryCard({ story, tasks, onEdit, onDelete, onClick }) {
+export default function StoryCard({ story, tasks, columns, onEdit, onDelete, onClick }) {
   const bar = getStoryBarStyle(story.color);
+  const lastCol = columns[columns.length - 1];
+  const storyTasks = tasks.filter(t => t.storyId === story.id);
+  const activeTasks = storyTasks.filter(t => t.status !== lastCol);
+  const doneTasks = storyTasks.length - activeTasks.length;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onClick={onClick}>
@@ -25,6 +29,10 @@ export default function StoryCard({ story, tasks, onEdit, onDelete, onClick }) {
           </div>
         </div>
         {story.description && <p className="text-xs text-gray-500 mb-1 line-clamp-2">{story.description}</p>}
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-xs text-gray-500">{activeTasks.length} aktiva</span>
+          {doneTasks > 0 && <span className="text-xs text-green-500">{doneTasks} klara</span>}
+        </div>
       </div>
     </div>
   );

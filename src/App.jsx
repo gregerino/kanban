@@ -425,7 +425,7 @@ function AppInner() {
               <div className="space-y-3 flex-1">
                 {data.stories.map(story => (
                   <div key={story.id}>
-                    <StoryCard story={story} tasks={data.tasks} onEdit={(s) => setStoryModal({ open: true, story: s })} onDelete={deleteStory} onClick={() => scrollToStory(story.id)} />
+                    <StoryCard story={story} tasks={data.tasks} columns={data.columns} onEdit={(s) => setStoryModal({ open: true, story: s })} onDelete={deleteStory} onClick={() => scrollToStory(story.id)} />
                   </div>
                 ))}
                 <button onClick={() => setStoryModal({ open: true, story: null })} className="w-full py-2.5 text-sm text-indigo-500 font-medium hover:bg-indigo-50 rounded-xl transition-colors flex items-center justify-center gap-1 border-2 border-dashed border-indigo-200">
@@ -485,9 +485,10 @@ function AppInner() {
                   {!collapsed && (
                     <div className="flex">
                       {data.columns.map(col => {
+                        const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
                         const colTasks = storyFilteredTasks
                           .filter(t => t.status === col)
-                          .sort((a, b) => (a.priority === 'Critical' ? 1 : 0) - (b.priority === 'Critical' ? 1 : 0));
+                          .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
                         return (
                           <DropZone
                             key={col}

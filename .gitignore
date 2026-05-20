@@ -31,3 +31,4 @@ app-icon.png
 # Environment variables
 .env
 .env.local
+.vercel
