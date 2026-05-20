@@ -65,7 +65,7 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task); }}
-      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative touch-none"
+      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative touch-none min-w-0 overflow-hidden"
       style={{
         background: gradient || '#fde68a',
         transform: `rotate(${rotation}deg)`,
@@ -80,7 +80,7 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
           {taskLabels.map(l => <div key={l.id} className="w-8 h-1.5 rounded-full" style={{ background: l.color }} title={l.name} />)}
         </div>
       )}
-      <p className="text-sm font-semibold text-gray-900 leading-snug drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">{task.title}</p>
+      <p className="text-sm font-semibold text-gray-900 leading-snug drop-shadow-[0_0_1px_rgba(255,255,255,0.5)] break-words">{task.title}</p>
 
       {checkTotal > 0 && (
         <div className="mt-2 space-y-1">

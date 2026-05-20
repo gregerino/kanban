@@ -28,7 +28,7 @@ function DropZone({ storyId, col, children }) {
     return () => registerDropZone(key, null);
   }, [storyId, col, registerDropZone]);
   return (
-    <div ref={ref} className="w-96 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0">
+    <div ref={ref} className="w-96 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0 min-w-0 overflow-hidden">
       {children}
     </div>
   );
@@ -485,16 +485,18 @@ function AppInner() {
                   {!collapsed && (
                     <div className="flex">
                       {data.columns.map(col => {
-                        const colTasks = storyFilteredTasks.filter(t => t.status === col);
+                        const colTasks = storyFilteredTasks
+                          .filter(t => t.status === col)
+                          .sort((a, b) => (a.priority === 'Critical' ? 1 : 0) - (b.priority === 'Critical' ? 1 : 0));
                         return (
                           <DropZone
                             key={col}
                             storyId={story.id}
                             col={col}
                           >
-                            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                            <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                               {colTasks.map(task => (
-                                <div key={task.id}>
+                                <div key={task.id} className="min-w-0">
                                   <StickyNote
                                     task={task}
                                     labels={data.labels}

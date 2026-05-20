@@ -1,13 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
   "productName": "QuestLog",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "identifier": "com.marcus.questlog",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "../dist",
+    "withGlobalTauri": true
   },
   "app": {
     "windows": [
@@ -33,7 +34,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   },
   "plugins": {
     "updater": {
@@ -41,6 +47,11 @@
       "endpoints": [
         "https://github.com/gregerino/kanban/releases/latest/download/latest.json"
       ]
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["questlog"]
+      }
     }
   }
 }
