@@ -17,6 +17,7 @@ import LoginScreen from './components/LoginScreen';
 import AuthProvider, { useAuth } from './components/AuthContext';
 import TaskContextMenu from './components/TaskContextMenu';
 import ThemeProvider from './components/ThemeContext';
+import FilterBar from './components/FilterBar';
 import DragProvider, { useDrag } from './components/DragContext';
 
 function DropZone({ storyId, col, children }) {
@@ -37,7 +38,7 @@ function DropZone({ storyId, col, children }) {
 function AppInner() {
   const { user, signOut, isConfigured } = useAuth();
   const { boards, setBoards, activeId, setActiveId, syncing, syncError } = useCloudSync(user);
-  const [filters, setFilters] = useState({ status: '', priority: '', label: '' });
+  const [filters, setFilters] = useState({ status: '', priority: '', labels: [] });
 
   const [detailTask, setDetailTask] = useState(null);
   const [storyModal, setStoryModal] = useState({ open: false, story: null });
@@ -83,7 +84,7 @@ function AppInner() {
     setRenamingBoard(null);
   };
 
-  const switchBoard = (id) => { setActiveId(id); setBoardMenuOpen(false); setFilters({ status: '', priority: '', label: '' }); setCollapsedStories({}); };
+  const switchBoard = (id) => { setActiveId(id); setBoardMenuOpen(false); setFilters({ status: '', priority: '', labels: [] }); setCollapsedStories({}); };
 
   // Story CRUD
   const saveStory = (story) => updateBoard(d => {
@@ -178,7 +179,7 @@ function AppInner() {
     return data.tasks.filter(t => {
       if (filters.status && t.status !== filters.status) return false;
       if (filters.priority && t.priority !== filters.priority) return false;
-      if (filters.label && !t.labels?.includes(filters.label)) return false;
+      if (filters.labels.length > 0 && !filters.labels.some(lid => t.labels?.includes(lid))) return false;
       return true;
     });
   }, [data.tasks, filters]);
@@ -401,6 +402,11 @@ function AppInner() {
         </div>
       </header>
 
+      {/* Label filter bar — only show when board has labels */}
+      {data.labels.length > 0 && (
+        <FilterBar filters={filters} setFilters={setFilters} labels={data.labels} columns={data.columns} />
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col`}>
@@ -463,7 +469,7 @@ function AppInner() {
               const rowColor = STORY_ROW_COLORS[storyIdx % STORY_ROW_COLORS.length];
               const storyHexColor = storyColorMap[story.id];
 
-              if (filters.status && storyFilteredTasks.length === 0 && !filters.priority && !filters.label) return null;
+              if (filters.status && storyFilteredTasks.length === 0 && !filters.priority && filters.labels.length === 0) return null;
 
               return (
                 <div

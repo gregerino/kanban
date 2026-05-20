@@ -97,9 +97,10 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
 
       <div className="flex items-center justify-between mt-2.5">
         <div className="flex items-center gap-1.5">
-          {task.priority && <PriorityFlag priority={task.priority} />}
+          {task.priority && task.priority !== 'Critical' && <PriorityFlag priority={task.priority} />}
         </div>
         <div className="flex items-center gap-2">
+          {task.priority === 'Critical' && <PriorityFlag priority={task.priority} />}
           {hasNotes && (
             <span className="text-xs text-gray-500 flex items-center" title="Har anteckningar">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
