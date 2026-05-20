@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { uid } from '../utils/helpers';
 import EmojiPicker from './EmojiPicker';
+import { useDrag } from './DragContext';
 
 export default function BrainDumpPanel({ lists, onSave }) {
   const [activeList, setActiveList] = useState(null);
@@ -11,6 +12,7 @@ export default function BrainDumpPanel({ lists, onSave }) {
   const [completedOpen, setCompletedOpen] = useState(false);
   const nameRef = useRef(null);
   const itemRef = useRef(null);
+  const { startDrag } = useDrag();
 
   useEffect(() => {
     if (lists.length > 0 && !activeList) setActiveList(lists[0].id);
@@ -76,9 +78,8 @@ export default function BrainDumpPanel({ lists, onSave }) {
     updateList(listId, { emoji });
   };
 
-  const handleDragStart = (e, item) => {
-    e.dataTransfer.setData('application/braindump', JSON.stringify({ text: item.text, listId: current.id, itemId: item.id }));
-    e.dataTransfer.effectAllowed = 'copyMove';
+  const handleItemPointerDown = (e, item) => {
+    startDrag(e, 'braindump', item.id, { text: item.text, listId: current.id, itemId: item.id });
   };
 
   // Split items into active vs completed
@@ -88,9 +89,8 @@ export default function BrainDumpPanel({ lists, onSave }) {
   const renderItem = (item, isDone) => (
     <div
       key={item.id}
-      className={`flex items-start gap-2 group py-1 ${!isDone ? 'cursor-grab active:cursor-grabbing' : ''}`}
-      draggable={!isDone}
-      onDragStart={!isDone ? (e) => handleDragStart(e, item) : undefined}
+      className={`flex items-start gap-2 group py-1 ${!isDone ? 'cursor-grab active:cursor-grabbing touch-none' : ''}`}
+      onPointerDown={!isDone ? (e) => handleItemPointerDown(e, item) : undefined}
     >
       <input
         type="checkbox"

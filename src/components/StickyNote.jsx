@@ -1,22 +1,22 @@
+import { useRef } from 'react';
 import { PRIORITY_FLAG_COLORS } from '../utils/constants';
 import { today } from '../utils/helpers';
+import { useDrag } from './DragContext';
 
 function hexToVividGradient(hex) {
   if (!hex || hex.startsWith('sticky-') || hex.startsWith('bg-')) return null;
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Soft but visible pastel tones
   const top = `rgba(${r},${g},${b},0.38)`;
   const bottom = `rgba(${r},${g},${b},0.52)`;
   return `linear-gradient(175deg, ${top} 0%, ${bottom} 100%)`;
 }
 
-// Stable pseudo-random rotation from task id
 function getRotation(id) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i);
-  return ((hash % 5) - 2) * 0.6; // range roughly -1.2 to 1.2 degrees
+  return ((hash % 5) - 2) * 0.6;
 }
 
 function PriorityFlag({ priority }) {
@@ -32,7 +32,7 @@ function PriorityFlag({ priority }) {
   );
 }
 
-export default function StickyNote({ task, labels, storyColor, onOpen, onDragStart, onDragEnd, onToggleCheck }) {
+export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu }) {
   const isOverdue = task.deadline && task.deadline < today() && task.status !== 'Done';
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
@@ -43,14 +43,29 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onDragSta
   const checklist = task.checklist || [];
   const checkTotal = checklist.length;
   const hasFiles = (task.files || []).length > 0;
+  const hasNotes = !!(task.notes && task.notes.trim());
+
+  const { startDrag, dragging } = useDrag();
+  const pointerStartRef = useRef(null);
+
+  const handlePointerDown = (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    startDrag(e, 'task', task.id, { taskId: task.id });
+  };
+
+  const handleClick = (e) => {
+    // Only open if we didn't drag
+    if (dragging) return;
+    onOpen(task);
+  };
 
   return (
     <div
-      draggable
-      onDragStart={e => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move'; onDragStart(task.id); }}
-      onDragEnd={onDragEnd}
-      onClick={() => onOpen(task)}
-      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative"
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task); }}
+      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative touch-none"
       style={{
         background: gradient || '#fde68a',
         transform: `rotate(${rotation}deg)`,
@@ -85,6 +100,11 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onDragSta
           {task.priority && <PriorityFlag priority={task.priority} />}
         </div>
         <div className="flex items-center gap-2">
+          {hasNotes && (
+            <span className="text-xs text-gray-500 flex items-center" title="Has notes">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </span>
+          )}
           {hasFiles && (
             <span className="text-xs text-gray-500 flex items-center gap-0.5" title="Has attachments">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>

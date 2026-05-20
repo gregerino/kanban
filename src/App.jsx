@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { loadBoards, loadActiveId, saveBoards, saveActiveId, createEmptyBoard } from './utils/storage';
+import useCloudSync from './utils/useCloudSync';
 import { uid } from './utils/helpers';
 import StickyNote from './components/StickyNote';
 import StoryCard from './components/StoryCard';
@@ -12,16 +13,31 @@ import NotificationCenter from './components/NotificationCenter';
 import BrainDumpPanel from './components/BrainDumpPanel';
 import AnalyticsModal from './components/AnalyticsModal';
 import UpdateChecker from './components/UpdateChecker';
+import LoginScreen from './components/LoginScreen';
+import AuthProvider, { useAuth } from './components/AuthContext';
+import TaskContextMenu from './components/TaskContextMenu';
+import DragProvider, { useDrag } from './components/DragContext';
 
-export default function App() {
-  const [boards, setBoards] = useState(loadBoards);
-  const [activeId, setActiveId] = useState(() => {
-    const saved = loadActiveId();
-    const bs = loadBoards();
-    return saved && bs.find(b => b.id === saved) ? saved : bs[0]?.id;
-  });
+function DropZone({ storyId, col, children }) {
+  const ref = useRef(null);
+  const { registerDropZone } = useDrag();
+  useEffect(() => {
+    const key = `${storyId}-${col}`;
+    registerDropZone(key, ref.current, storyId, col);
+    return () => registerDropZone(key, null);
+  }, [storyId, col, registerDropZone]);
+  return (
+    <div ref={ref} className="w-96 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0">
+      {children}
+    </div>
+  );
+}
+
+function AppInner() {
+  const { user, signOut, isConfigured } = useAuth();
+  const { boards, setBoards, activeId, setActiveId, syncing, syncError } = useCloudSync(user);
   const [filters, setFilters] = useState({ status: '', priority: '', label: '' });
-  const [draggingId, setDraggingId] = useState(null);
+
   const [detailTask, setDetailTask] = useState(null);
   const [storyModal, setStoryModal] = useState({ open: false, story: null });
   const [labelModal, setLabelModal] = useState(false);
@@ -35,15 +51,13 @@ export default function App() {
   const [sidebarTab, setSidebarTab] = useState('stories'); // 'stories' | 'braindump'
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
 
   // Refs for scrolling to stories
   const storyRowRefs = useRef({});
   const mainRef = useRef(null);
 
   const data = boards.find(b => b.id === activeId) || boards[0];
-
-  useEffect(() => { saveBoards(boards); }, [boards]);
-  useEffect(() => { saveActiveId(activeId); }, [activeId]);
 
   const updateBoard = (fn) => setBoards(bs => bs.map(b => b.id === activeId ? fn(b) : b));
 
@@ -117,20 +131,18 @@ export default function App() {
   // Board icon
   const saveBoardIcon = (icon) => updateBoard(d => ({ ...d, icon }));
 
-  // Drag and drop
-  const handleDrop = (e, storyId, status) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
+  // Drag and drop — custom pointer-event system for Tauri/WebKit compatibility
+  useEffect(() => {
+    const onBoardDrop = (e) => {
+      const { drag, target } = e.detail;
+      if (!drag || !target) return;
+      const { storyId, col: status } = target;
 
-    // Check if this is a brain dump item drop
-    const brainDumpData = e.dataTransfer.getData('application/braindump');
-    if (brainDumpData) {
-      try {
-        const { text, listId, itemId } = JSON.parse(brainDumpData);
-        // Create a new task from the brain dump item
+      if (drag.type === 'braindump') {
+        const bd = drag.data;
         const newTask = {
           id: uid(),
-          title: text,
+          title: bd.text,
           status,
           storyId,
           priority: '',
@@ -145,25 +157,21 @@ export default function App() {
         updateBoard(d => ({
           ...d,
           tasks: [...d.tasks, newTask],
-          // Remove the item from the brain dump list
           brainDumpLists: (d.brainDumpLists || []).map(l =>
-            l.id === listId ? { ...l, items: l.items.filter(i => i.id !== itemId) } : l
+            l.id === bd.listId ? { ...l, items: l.items.filter(i => i.id !== bd.itemId) } : l
           ),
         }));
-      } catch (err) { /* ignore parse errors */ }
-      return;
-    }
-
-    const taskId = e.dataTransfer.getData('text/plain');
-    if (!taskId) return;
-    updateBoard(d => ({
-      ...d,
-      tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
-    }));
-    setDraggingId(null);
-  };
-  const handleDragOver = (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
-  const handleDragLeave = (e) => { e.currentTarget.classList.remove('drag-over'); };
+      } else if (drag.type === 'task') {
+        const taskId = drag.id;
+        updateBoard(d => ({
+          ...d,
+          tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
+        }));
+      }
+    };
+    window.addEventListener('board-drop', onBoardDrop);
+    return () => window.removeEventListener('board-drop', onBoardDrop);
+  }, []);
 
   const filteredTasks = useMemo(() => {
     return data.tasks.filter(t => {
@@ -291,6 +299,18 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Sync indicator */}
+          {user && (
+            <div className="flex items-center gap-1.5 mr-1">
+              {syncing ? (
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Synkar..." />
+              ) : syncError ? (
+                <div className="w-2 h-2 rounded-full bg-red-400" title={`Synkfel: ${syncError}`} />
+              ) : (
+                <div className="w-2 h-2 rounded-full bg-green-400" title="Synkad" />
+              )}
+            </div>
+          )}
           {/* Search */}
           <div className="relative">
             <button onClick={() => setSearchOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-gray-100" title="Search tasks">
@@ -349,6 +369,34 @@ export default function App() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
             Labels
           </button>
+
+          {/* User avatar / Auth */}
+          {user ? (
+            <div className="relative group">
+              <button className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-indigo-300 transition-colors" title={user.email}>
+                {user.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+                    {(user.email || '?')[0].toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-xs font-medium text-gray-800 truncate">{user.user_metadata?.full_name || user.email}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
+                </div>
+                <button onClick={signOut} className="w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50 transition-colors">
+                  Logga ut
+                </button>
+              </div>
+            </div>
+          ) : isConfigured ? (
+            <button onClick={() => window.__showLogin?.()} className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+              Logga in
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -397,7 +445,7 @@ export default function App() {
           <div className="min-w-max p-4">
             <div className="flex gap-0 mb-0">
               {data.columns.map(col => (
-                <div key={col} className="w-64 shrink-0 px-2">
+                <div key={col} className="w-96 shrink-0 px-2">
                   <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-700">{col}</h3>
                     <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
@@ -438,12 +486,10 @@ export default function App() {
                       {data.columns.map(col => {
                         const colTasks = storyFilteredTasks.filter(t => t.status === col);
                         return (
-                          <div
+                          <DropZone
                             key={col}
-                            className="w-64 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0"
-                            onDrop={e => handleDrop(e, story.id, col)}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
+                            storyId={story.id}
+                            col={col}
                           >
                             <div className="grid gap-2" style={{ gridTemplateColumns: colTasks.length >= 3 ? 'repeat(3, 1fr)' : colTasks.length === 2 ? 'repeat(2, 1fr)' : '1fr' }}>
                               {colTasks.map(task => (
@@ -453,15 +499,14 @@ export default function App() {
                                     labels={data.labels}
                                     storyColor={storyHexColor}
                                     onOpen={setDetailTask}
-                                    onDragStart={setDraggingId}
-                                    onDragEnd={() => setDraggingId(null)}
                                     onToggleCheck={toggleCheckItem}
+                                    onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })}
                                   />
                                 </div>
                               ))}
                             </div>
                             <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
-                          </div>
+                          </DropZone>
                         );
                       })}
                     </div>
@@ -517,6 +562,58 @@ export default function App() {
         columns={data.columns}
       />
       <UpdateChecker />
+      {contextMenu && (
+        <TaskContextMenu
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          task={contextMenu.task}
+          onOpen={setDetailTask}
+          onDelete={deleteTask}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function AppShell() {
+  const { user, loading, isConfigured } = useAuth();
+  const [skippedLogin, setSkippedLogin] = useState(() => {
+    return localStorage.getItem('scrum_skipped_login') === 'true';
+  });
+
+  // Expose showLogin for the header "Logga in" button
+  useEffect(() => {
+    window.__showLogin = () => {
+      localStorage.removeItem('scrum_skipped_login');
+      setSkippedLogin(false);
+    };
+    return () => { delete window.__showLogin; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+        <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Show login screen if Supabase is configured, user not logged in, and hasn't skipped
+  if (isConfigured && !user && !skippedLogin) {
+    return <LoginScreen onSkip={() => { setSkippedLogin(true); localStorage.setItem('scrum_skipped_login', 'true'); }} />;
+  }
+
+  return (
+    <DragProvider>
+      <AppInner />
+    </DragProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }

@@ -13,10 +13,13 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
   const [fileSizeError, setFileSizeError] = useState('');
   const checkInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const formRef = useRef(null);
 
   useEffect(() => {
     if (task) {
-      setForm({ ...task, checklist: task.checklist || [], files: task.files || [] });
+      const initial = { ...task, checklist: task.checklist || [], files: task.files || [] };
+      setForm(initial);
+      formRef.current = initial;
       setNewComment('');
       setNewCheckItem('');
       setFileSizeError('');
@@ -27,7 +30,11 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
 
   const allColors = [...PRESET_COLORS, ...customColors];
 
-  const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  const update = (key, val) => setForm(f => {
+    const next = { ...f, [key]: val };
+    formRef.current = next;
+    return next;
+  });
   const toggleLabel = (lid) => {
     const has = form.labels.includes(lid);
     update('labels', has ? form.labels.filter(x => x !== lid) : [...form.labels, lid]);
@@ -95,13 +102,14 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const save = () => { onSave(form); onClose(); };
+  const save = () => { onSave(formRef.current || form); onClose(); };
+  const handleClose = () => { onSave(formRef.current || form); onClose(); };
 
   const checkDone = form.checklist.filter(c => c.done).length;
   const checkTotal = form.checklist.length;
 
   return (
-    <Modal open={open} onClose={onClose} title="Task Details" wide>
+    <Modal open={open} onClose={handleClose} title="Task Details" wide>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
           <div>
