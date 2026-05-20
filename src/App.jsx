@@ -262,7 +262,7 @@ function AppInner() {
                   <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[220px] py-1">
                     {boards.map(b => (
                       <div key={b.id} className={`flex items-center gap-2 px-3 py-2 ${b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
-                        {b.icon && <span className="text-sm">{b.icon.startsWith('data:') ? '🖼️' : b.icon}</span>}
+                        {b.icon && (b.icon.startsWith('data:') ? <img src={b.icon} alt="" className="w-5 h-5 rounded object-cover shrink-0" /> : <span className="text-sm">{b.icon}</span>)}
                         {renamingBoard === b.id ? (
                           <input
                             value={renameValue}
