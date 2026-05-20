@@ -6,15 +6,13 @@ export default function UpdateChecker() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Only run in Tauri desktop environment
-    if (!window.__TAURI__) return;
-
     const checkUpdate = async () => {
       try {
         const { check } = await import('@tauri-apps/plugin-updater');
         const update = await check();
         if (update) setUpdateAvailable(update);
       } catch (e) {
+        // Not in Tauri environment or update check failed
         console.log('Update check skipped:', e.message);
       }
     };
