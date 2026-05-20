@@ -36,7 +36,7 @@ export default function EmojiPicker({ onSelect, onClose }) {
             ref={inputRef}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search emojis..."
+            placeholder="Sök emojis..."
             className="w-full px-2.5 py-1.5 bg-gray-50 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200"
           />
         </div>

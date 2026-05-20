@@ -2,11 +2,11 @@ import { useState, useMemo } from 'react';
 import Modal from './Modal';
 
 const PERIOD_OPTIONS = [
-  { label: 'Current work week', days: 7, key: 'week' },
-  { label: 'Last 7 days', days: 7, key: '7d' },
-  { label: 'Last 14 days', days: 14, key: '14d' },
-  { label: 'Last month', days: 30, key: 'month' },
-  { label: 'Last 3 months', days: 90, key: '3m' },
+  { label: 'Denna vecka', days: 7, key: 'week' },
+  { label: 'Senaste 7 dagar', days: 7, key: '7d' },
+  { label: 'Senaste 14 dagar', days: 14, key: '14d' },
+  { label: 'Senaste månaden', days: 30, key: 'month' },
+  { label: 'Senaste 3 månader', days: 90, key: '3m' },
 ];
 
 function getDaysInRange(days) {
@@ -87,7 +87,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
   }, [tasks, lastCol]);
 
   return (
-    <Modal open={open} onClose={onClose} title="Analytics" wide>
+    <Modal open={open} onClose={onClose} title="Analys" wide>
       <div className="space-y-6">
         {/* Period selector */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -107,26 +107,26 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span className="text-xs text-gray-500 font-medium">Tasks completed</span>
+              <span className="text-xs text-gray-500 font-medium">Avklarade uppgifter</span>
             </div>
             <p className="text-3xl font-bold text-gray-800">{completedCount}</p>
-            <p className="text-xs text-green-600 mt-1">of {totalTasks} total</p>
+            <p className="text-xs text-green-600 mt-1">av {totalTasks} totalt</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span className="text-xs text-gray-500 font-medium">Overdue tasks</span>
+              <span className="text-xs text-gray-500 font-medium">Försenade uppgifter</span>
             </div>
             <p className="text-3xl font-bold text-gray-800">{overdueTasks.length}</p>
-            <p className="text-xs text-red-500 mt-1">{overdueTasks.length > 0 ? 'Need attention' : 'All on track'}</p>
+            <p className="text-xs text-red-500 mt-1">{overdueTasks.length > 0 ? 'Behöver åtgärdas' : 'Allt i tid'}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-              <span className="text-xs text-gray-500 font-medium">Average task age</span>
+              <span className="text-xs text-gray-500 font-medium">Genomsnittlig ålder</span>
             </div>
-            <p className="text-3xl font-bold text-gray-800">{avgAge !== null ? `${avgAge} days` : 'N/A'}</p>
-            <p className="text-xs text-gray-400 mt-1">{avgAge !== null && avgAge <= 7 ? 'Average' : avgAge !== null ? 'Consider prioritizing' : 'No deadlines set'}</p>
+            <p className="text-3xl font-bold text-gray-800">{avgAge !== null ? `${avgAge} dagar` : 'N/A'}</p>
+            <p className="text-xs text-gray-400 mt-1">{avgAge !== null && avgAge <= 7 ? 'Genomsnitt' : avgAge !== null ? 'Överväg att prioritera' : 'Inga deadlines satta'}</p>
           </div>
         </div>
 
@@ -134,7 +134,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Tasks by Status - bar chart */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks by Status</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Uppgifter per status</h3>
             <div className="space-y-3">
               {columns.map(col => (
                 <div key={col} className="flex items-center gap-3">
@@ -154,7 +154,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
 
           {/* Tasks by Priority */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks by Priority</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Uppgifter per prioritet</h3>
             <div className="flex items-end gap-3 h-32 mt-2">
               {Object.entries(priorityCounts).map(([p, count]) => {
                 const maxP = Math.max(...Object.values(priorityCounts), 1);
@@ -173,16 +173,16 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
 
         {/* Tasks by Label */}
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks by Label</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Uppgifter per etikett</h3>
           {labelStats.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="text-left py-2 text-xs text-gray-500 font-medium">Label</th>
-                    <th className="text-left py-2 text-xs text-gray-500 font-medium">Distribution</th>
-                    <th className="text-right py-2 text-xs text-gray-500 font-medium">Tasks</th>
-                    <th className="text-right py-2 text-xs text-gray-500 font-medium">Completed</th>
+                    <th className="text-left py-2 text-xs text-gray-500 font-medium">Etikett</th>
+                    <th className="text-left py-2 text-xs text-gray-500 font-medium">Fördelning</th>
+                    <th className="text-right py-2 text-xs text-gray-500 font-medium">Uppgifter</th>
+                    <th className="text-right py-2 text-xs text-gray-500 font-medium">Avklarade</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -211,7 +211,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
               </table>
             </div>
           ) : (
-            <p className="text-xs text-gray-400 text-center py-4">No labels assigned yet.</p>
+            <p className="text-xs text-gray-400 text-center py-4">Inga etiketter tilldelade ännu.</p>
           )}
         </div>
       </div>

@@ -66,29 +66,29 @@ export default function StoryModal({ story, open, onClose, onSave, onDelete }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={story ? 'Edit Story' : 'New Story'}>
+    <Modal open={open} onClose={onClose} title={story ? 'Redigera story' : 'Ny story'}>
       <div className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
-          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Story title..." />
+          <label className="block text-xs font-medium text-gray-500 mb-1">Titel</label>
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Storytitel..." />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
-          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none" placeholder="Describe the story goal..." />
+          <label className="block text-xs font-medium text-gray-500 mb-1">Beskrivning</label>
+          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none" placeholder="Beskriv storymålet..." />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Färg</label>
           <div className="flex flex-wrap gap-1.5 items-center">
             {PRESET_HEX.map(c => (
               <button key={c} onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-8 h-8 rounded-full ${form.color === c ? 'ring-2 ring-offset-2 ring-gray-800' : ''} hover:scale-110 transition-transform`} style={{ background: c }} />
             ))}
-            <input type="color" value={form.color} onChange={handleColorPick} onBlur={handleColorCommit} className="w-8 h-8 rounded-full cursor-pointer border-0 p-0" title="Pick custom color" />
+            <input type="color" value={form.color} onChange={handleColorPick} onBlur={handleColorCommit} className="w-8 h-8 rounded-full cursor-pointer border-0 p-0" title="Välj egen färg" />
           </div>
 
           {/* Saved custom colors */}
           {customColors.length > 0 && (
             <div className="mt-2">
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Saved colors</span>
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Sparade färger</span>
               <div className="flex flex-wrap gap-1.5 mt-1 items-center">
                 {customColors.map(c => (
                   <div key={c} className="relative group">
@@ -100,7 +100,7 @@ export default function StoryModal({ story, open, onClose, onSave, onDelete }) {
                     <button
                       onClick={(e) => removeCustomColor(c, e)}
                       className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none"
-                      title="Remove color"
+                      title="Ta bort färg"
                     >
                       &times;
                     </button>
@@ -112,9 +112,9 @@ export default function StoryModal({ story, open, onClose, onSave, onDelete }) {
         </div>
         <div className="flex gap-2 pt-2">
           <button onClick={save} className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">
-            {story ? 'Save' : 'Create'}
+            {story ? 'Spara' : 'Skapa'}
           </button>
-          {story && <button onClick={() => { onDelete(story.id); onClose(); }} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Delete</button>}
+          {story && <button onClick={() => { onDelete(story.id); onClose(); }} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Ta bort</button>}
         </div>
       </div>
     </Modal>

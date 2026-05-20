@@ -109,15 +109,15 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
   const checkTotal = form.checklist.length;
 
   return (
-    <Modal open={open} onClose={handleClose} title="Task Details" wide>
+    <Modal open={open} onClose={handleClose} title="Uppgiftsdetaljer" wide>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Titel</label>
             <input value={form.title} onChange={e => update('title', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Färg</label>
             <div className="flex flex-wrap gap-1.5 items-center">
               {allColors.map(c => (
                 <button key={c} onClick={() => update('color', c)} className={`w-7 h-7 rounded-lg ${form.color === c ? 'ring-2 ring-offset-1 ring-gray-800' : ''} hover:scale-110 transition-transform`} style={{ background: c }} />
@@ -126,7 +126,7 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Labels</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Etiketter</label>
             <div className="flex flex-wrap gap-2">
               {allLabels.map(l => (
                 <button key={l.id} onClick={() => toggleLabel(l.id)} className={`px-2.5 py-1 rounded-full text-xs font-medium text-white ${form.labels.includes(l.id) ? 'ring-2 ring-offset-1 ring-gray-800' : 'opacity-50 hover:opacity-80'} transition-all`} style={{ background: l.color }}>
@@ -139,7 +139,7 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
           {/* Checklist */}
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-medium text-gray-500">Checklist</label>
+              <label className="block text-xs font-medium text-gray-500">Checklista</label>
               {checkTotal > 0 && (
                 <span className={`text-xs ${checkDone === checkTotal ? 'text-green-600 font-medium' : 'text-gray-400'}`}>{checkDone}/{checkTotal}</span>
               )}
@@ -161,21 +161,21 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
               ))}
             </div>
             <div className="flex gap-2">
-              <input ref={checkInputRef} value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} placeholder="Add checklist item..." className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" onKeyDown={e => e.key === 'Enter' && addCheckItem()} />
-              <button onClick={addCheckItem} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors">Add</button>
+              <input ref={checkInputRef} value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} placeholder="Lägg till punkt..." className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" onKeyDown={e => e.key === 'Enter' && addCheckItem()} />
+              <button onClick={addCheckItem} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors">Lägg till</button>
             </div>
           </div>
 
           {/* Notes */}
           <div className="border-t border-gray-100 pt-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-            <textarea value={form.notes || ''} onChange={e => update('notes', e.target.value)} placeholder="Write notes..." rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-y" />
+            <label className="block text-xs font-medium text-gray-500 mb-1">Anteckningar</label>
+            <textarea value={form.notes || ''} onChange={e => update('notes', e.target.value)} placeholder="Skriv anteckningar..." rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-y" />
           </div>
 
           {/* Files */}
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-medium text-gray-500">Attachments</label>
+              <label className="block text-xs font-medium text-gray-500">Bilagor</label>
               <span className="text-xs text-gray-400">{formatFileSize(currentSize)} / 25 MB</span>
             </div>
             {(form.files || []).length > 0 && (
@@ -200,14 +200,14 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
             {fileSizeError && <p className="text-xs text-red-500 mb-2">{fileSizeError}</p>}
             <label className="flex items-center justify-center w-full py-3 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
               <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-              <span className="text-xs text-gray-500">Add files</span>
+              <span className="text-xs text-gray-500">Lägg till filer</span>
               <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} className="hidden" />
             </label>
           </div>
 
           {/* Comments */}
           <div className="border-t border-gray-100 pt-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">Comments</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Kommentarer</label>
             <div className="space-y-3 max-h-48 overflow-y-auto mb-3">
               {(form.comments || []).map(c => (
                 <div key={c.id} className="bg-gray-50 rounded-lg p-3">
@@ -218,11 +218,11 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
                   <p className="text-sm text-gray-600">{c.text}</p>
                 </div>
               ))}
-              {(!form.comments || form.comments.length === 0) && <p className="text-xs text-gray-400">No comments yet.</p>}
+              {(!form.comments || form.comments.length === 0) && <p className="text-xs text-gray-400">Inga kommentarer ännu.</p>}
             </div>
             <div className="flex gap-2">
-              <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Write a comment..." className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" onKeyDown={e => e.key === 'Enter' && addComment()} />
-              <button onClick={addComment} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Send</button>
+              <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Skriv en kommentar..." className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" onKeyDown={e => e.key === 'Enter' && addComment()} />
+              <button onClick={addComment} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Skicka</button>
             </div>
           </div>
         </div>
@@ -234,9 +234,9 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Priority</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Prioritet</label>
             <select value={form.priority} onChange={e => update('priority', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-              <option value="">None</option>
+              <option value="">Ingen</option>
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -245,8 +245,8 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
             <input type="date" value={form.deadline || ''} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
           </div>
           <div className="pt-4 border-t border-gray-100 space-y-2">
-            <button onClick={save} className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Save Changes</button>
-            <button onClick={() => { onDelete(form.id); onClose(); }} className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Delete Task</button>
+            <button onClick={save} className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Spara ändringar</button>
+            <button onClick={() => { onDelete(form.id); onClose(); }} className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Ta bort uppgift</button>
           </div>
         </div>
       </div>
