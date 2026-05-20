@@ -28,34 +28,47 @@ export default function AuthProvider({ children }) {
 
     // In Tauri, listen for deep link callbacks (questlog://auth#access_token=...)
     let unlistenDeepLink = null;
-    if (isTauri()) {
-      import('@tauri-apps/plugin-deep-link').then(({ onOpenUrl }) => {
-        onOpenUrl((urls) => {
-          for (const url of urls) {
-            if (url.startsWith('questlog://auth')) {
-              // Extract fragment (everything after #)
-              const hashIndex = url.indexOf('#');
-              if (hashIndex !== -1) {
-                const fragment = url.substring(hashIndex + 1);
-                const params = new URLSearchParams(fragment);
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
-                if (accessToken && refreshToken) {
-                  supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                  });
-                }
-              }
+    let unlistenEvent = null;
+
+    const handleDeepLinkUrls = (urls) => {
+      for (const url of urls) {
+        if (url.startsWith('questlog://auth')) {
+          const hashIndex = url.indexOf('#');
+          if (hashIndex !== -1) {
+            const fragment = url.substring(hashIndex + 1);
+            const params = new URLSearchParams(fragment);
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            if (accessToken && refreshToken) {
+              supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
             }
           }
-        }).then(fn => { unlistenDeepLink = fn; });
+        }
+      }
+    };
+
+    if (isTauri()) {
+      // Primary: deep-link plugin listener (works on macOS)
+      import('@tauri-apps/plugin-deep-link').then(({ onOpenUrl }) => {
+        onOpenUrl(handleDeepLinkUrls).then(fn => { unlistenDeepLink = fn; });
+      }).catch(() => {});
+
+      // Fallback: listen for events from single-instance plugin (needed on Windows)
+      import('@tauri-apps/api/event').then(({ listen }) => {
+        listen('deep-link://new-url', (event) => {
+          const urls = event.payload;
+          if (Array.isArray(urls)) handleDeepLinkUrls(urls);
+        }).then(fn => { unlistenEvent = fn; });
       }).catch(() => {});
     }
 
     return () => {
       subscription.unsubscribe();
       if (unlistenDeepLink) unlistenDeepLink();
+      if (unlistenEvent) unlistenEvent();
     };
   }, []);
 
