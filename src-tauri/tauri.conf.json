@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhBN0NCMkIwQzVENzU3NUEKUldSYVY5ZkZzTEo4aWpVZFVDNlpid3FmaW5WVnduRmQ1OVZuNm90K01vcmpudFNXU2JxWUNoUG4K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFQzk0RThEMTkwQTM1MTIKUldRU05Rb1pqVTdKbm5oZGsrdkVIQVdhOGpEd09sdFBORVk5Ny82QVBHV2FXRnZZbkIzbVpUbXAK",
       "endpoints": [
         "https://github.com/gregerino/kanban/releases/latest/download/latest.json"
       ]
