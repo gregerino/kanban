@@ -3,6 +3,8 @@ import Modal from './Modal';
 import EmojiPicker from './EmojiPicker';
 import { useTheme } from './ThemeContext';
 
+const APP_VERSION = __APP_VERSION__;
+
 const TABS = [
   { key: 'general', label: 'Allmänt', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   { key: 'columns', label: 'Kolumner', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7' },
@@ -93,6 +95,19 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
           {/* General */}
           {tab === 'general' && (
             <div className="space-y-5">
+              {/* Version */}
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">QuestLog</p>
+                    <p className="text-xs text-gray-400">Version {APP_VERSION}</p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">Board-ikon</h3>
                 <div className="flex items-center gap-3 mb-3">
