@@ -52,7 +52,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
 
   // Tasks by priority
   const priorityCounts = useMemo(() => {
-    const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, None: 0 };
+    const counts = { Legendary: 0, Epic: 0, Rare: 0, Common: 0, None: 0 };
     tasks.forEach(t => {
       if (t.priority && counts[t.priority] !== undefined) counts[t.priority]++;
       else counts.None++;
@@ -60,7 +60,7 @@ export default function AnalyticsModal({ open, onClose, tasks, labels, columns }
     return counts;
   }, [tasks]);
 
-  const priorityColors = { Critical: '#ef4444', High: '#f97316', Medium: '#eab308', Low: '#3b82f6', None: '#9ca3af' };
+  const priorityColors = { Legendary: '#ef4444', Epic: '#a855f7', Rare: '#3b82f6', Common: '#22c55e', None: '#9ca3af' };
 
   // Tasks by label
   const labelStats = useMemo(() => {

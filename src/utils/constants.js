@@ -1,17 +1,17 @@
 export const STORAGE_KEY = 'scrumkanban_data';
 export const DEFAULT_COLUMNS = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
-export const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+export const PRIORITIES = ['Common', 'Rare', 'Epic', 'Legendary'];
 export const PRIORITY_COLORS = {
-  Low: 'bg-blue-100 text-blue-700',
-  Medium: 'bg-yellow-100 text-yellow-700',
-  High: 'bg-orange-100 text-orange-700',
-  Critical: 'bg-red-100 text-red-700',
+  Common: 'bg-green-100 text-green-700',
+  Rare: 'bg-blue-100 text-blue-700',
+  Epic: 'bg-purple-100 text-purple-700',
+  Legendary: 'bg-red-100 text-red-700',
 };
 export const PRIORITY_FLAG_COLORS = {
-  Low: '#3b82f6',
-  Medium: '#eab308',
-  High: '#f97316',
-  Critical: '#ef4444',
+  Common: '#22c55e',
+  Rare: '#3b82f6',
+  Epic: '#a855f7',
+  Legendary: '#ef4444',
 };
 export const STICKY_COLORS = ['sticky-note', 'sticky-orange', 'sticky-blue', 'sticky-green', 'sticky-pink', 'sticky-purple'];
 export const STICKY_COLOR_NAMES = ['Yellow', 'Orange', 'Blue', 'Green', 'Pink', 'Purple'];

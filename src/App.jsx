@@ -694,7 +694,7 @@ function AppInner() {
                       {!isMobile && (
                         <div className="flex">
                           {data.columns.map(col => {
-                            const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
+                            const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
                             const colTasks = storyFilteredTasks
                               .filter(t => t.status === col)
                               .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
@@ -718,7 +718,7 @@ function AppInner() {
                       {isMobile && (
                         <div className="p-2">
                           {(() => {
-                            const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
+                            const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
                             const colTasks = mobileStoryTasks
                               .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
                             return (

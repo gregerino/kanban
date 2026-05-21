@@ -83,7 +83,11 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
           data: ev.target.result,
           addedAt: new Date().toISOString(),
         };
-        setForm(f => ({ ...f, files: [...(f.files || []), fileObj] }));
+        setForm(f => {
+          const next = { ...f, files: [...(f.files || []), fileObj] };
+          formRef.current = next;
+          return next;
+        });
       };
       reader.readAsDataURL(file);
       addedSize += file.size;
