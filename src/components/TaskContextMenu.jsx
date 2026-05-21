@@ -40,9 +40,11 @@ export default function TaskContextMenu({ position, task, allLabels = [], onDele
       </button>
 
       {/* Labels submenu */}
-      <div className="relative">
+      <div className="relative"
+        onMouseEnter={() => setShowLabels(true)}
+        onMouseLeave={() => setShowLabels(false)}
+      >
         <button
-          onClick={() => setShowLabels(s => !s)}
           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

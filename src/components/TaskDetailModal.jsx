@@ -6,7 +6,7 @@ import { uid } from '../utils/helpers';
 const PRESET_COLORS = ['#fde68a', '#fdba74', '#93c5fd', '#86efac', '#fda4af', '#c4b5fd', '#f87171', '#818cf8', '#2dd4bf', '#a3e635'];
 const MAX_FILES_SIZE = 25 * 1024 * 1024; // 25MB
 
-export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete, deadlineEnabled = false }) {
+export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete }) {
   const [form, setForm] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [newCheckItem, setNewCheckItem] = useState('');
@@ -240,12 +240,26 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
-          {deadlineEnabled && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Deadline</label>
-              <input type="date" value={form.deadline || ''} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-gray-500">Deadline</label>
+              <button
+                onClick={() => {
+                  if (form.deadline) {
+                    update('deadline', '');
+                  } else {
+                    update('deadline', new Date().toISOString().slice(0, 10));
+                  }
+                }}
+                className={`relative w-9 h-5 rounded-full transition-colors ${form.deadline ? 'bg-indigo-500' : 'bg-gray-300'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.deadline ? 'translate-x-4' : ''}`} />
+              </button>
             </div>
-          )}
+            {form.deadline && (
+              <input type="date" value={form.deadline} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+            )}
+          </div>
           <div className="pt-4 border-t border-gray-100 space-y-2">
             <button onClick={save} className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Spara ändringar</button>
             <button onClick={() => { onDelete(form.id); onClose(); }} className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Ta bort uppgift</button>
