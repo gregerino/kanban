@@ -29,16 +29,30 @@ function DropZone({ storyId, col, children }) {
     return () => registerDropZone(key, null);
   }, [storyId, col, registerDropZone]);
   return (
-    <div ref={ref} className="w-96 shrink-0 column-drop-zone p-2 border-r border-inherit last:border-r-0 min-w-0 overflow-hidden">
+    <div ref={ref} className="w-full md:w-96 shrink-0 column-drop-zone p-2 md:border-r border-inherit last:border-r-0 min-w-0 overflow-hidden">
       {children}
     </div>
   );
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
 }
 
 function AppInner() {
   const { user, signOut, isConfigured } = useAuth();
   const { boards, setBoards, activeId, setActiveId, syncing, syncError } = useCloudSync(user);
   const [filters, setFilters] = useState({ status: '', priority: '', labels: [] });
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileColumnIdx, setMobileColumnIdx] = useState(0);
 
   const [detailTask, setDetailTask] = useState(null);
   const [storyModal, setStoryModal] = useState({ open: false, story: null });
@@ -46,7 +60,7 @@ function AppInner() {
   const [settingsModal, setSettingsModal] = useState(false);
   const [analyticsModal, setAnalyticsModal] = useState(false);
   const [collapsedStories, setCollapsedStories] = useState({});
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [renamingBoard, setRenamingBoard] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -302,29 +316,29 @@ function AppInner() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(s => !s)} className="p-1.5 rounded-lg hover:bg-gray-100">
+      <header className="bg-white border-b border-gray-200 px-2 md:px-4 py-2 md:py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <button onClick={() => { setSidebarOpen(s => !s); }} className="p-1.5 rounded-lg hover:bg-gray-100 shrink-0">
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {/* Board icon — click opens settings on General tab */}
-            <button onClick={() => setSettingsModal(true)} className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer" style={!boardIcon ? { background: '#6366f1' } : undefined} title="Byt boardikon">
+            <button onClick={() => setSettingsModal(true)} className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer" style={!boardIcon ? { background: '#6366f1' } : undefined} title="Byt boardikon">
               {boardIcon ? (
                 isEmojiIcon ? (
-                  <span className="text-2xl">{boardIcon}</span>
+                  <span className="text-xl md:text-2xl">{boardIcon}</span>
                 ) : (
-                  <img src={boardIcon} alt="" className="w-10 h-10 object-cover rounded-lg" />
+                  <img src={boardIcon} alt="" className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg" />
                 )
               ) : (
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
               )}
             </button>
             {/* Board switcher */}
-            <div className="relative" ref={boardMenuRef}>
-              <button onClick={() => setBoardMenuOpen(o => !o)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
-                <h1 className="text-lg font-bold text-gray-800">{data.name}</h1>
-                <svg className={`w-4 h-4 text-gray-400 transition-transform ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+            <div className="relative min-w-0" ref={boardMenuRef}>
+              <button onClick={() => setBoardMenuOpen(o => !o)} className="flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors min-w-0">
+                <h1 className="text-base md:text-lg font-bold text-gray-800 truncate max-w-[120px] md:max-w-none">{data.name}</h1>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
               </button>
               {boardMenuOpen && (
                 <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[240px] py-1">
@@ -381,7 +395,7 @@ function AppInner() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           {/* Sync indicator */}
           {user && (
             <div className="flex items-center gap-1.5 mr-1">
@@ -402,7 +416,7 @@ function AppInner() {
             {searchOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} />
-                <div className="absolute right-0 top-full mt-2 z-40 bg-white rounded-xl shadow-xl border border-gray-100 w-80">
+                <div className="absolute right-0 top-full mt-2 z-40 bg-white rounded-xl shadow-xl border border-gray-100 w-[calc(100vw-2rem)] md:w-80 max-w-80">
                   <div className="p-3">
                     <input
                       value={searchQuery}
@@ -440,23 +454,82 @@ function AppInner() {
 
           <NotificationCenter tasks={data.tasks} onOpenTask={setDetailTask} />
 
-          <button onClick={() => setAnalyticsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Analys">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Analys
-          </button>
-          <button onClick={() => setSettingsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            Inställningar
-          </button>
-          {data.labels.length > 0 && (
-            <FilterBar filters={filters} setFilters={setFilters} labels={data.labels} />
-          )}
-          <button onClick={() => setLabelModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-            Etiketter
-          </button>
+          {/* Desktop header buttons */}
+          <div className="hidden md:flex items-center gap-2">
+            <button onClick={() => setAnalyticsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Analys">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              Analys
+            </button>
+            <button onClick={() => setSettingsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Inställningar
+            </button>
+            {data.labels.length > 0 && (
+              <FilterBar filters={filters} setFilters={setFilters} labels={data.labels} />
+            )}
+            <button onClick={() => setLabelModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Etiketter
+            </button>
+          </div>
 
-          {/* User avatar / Auth */}
+          {/* Mobile more menu button */}
+          <div className="md:hidden relative">
+            <button onClick={() => setMobileMenuOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-gray-100">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+            </button>
+            {mobileMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMobileMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[180px] py-1">
+                  <button onClick={() => { setAnalyticsModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Analys
+                  </button>
+                  <button onClick={() => { setSettingsModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Inställningar
+                  </button>
+                  <button onClick={() => { setLabelModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    Etiketter
+                  </button>
+                  {data.labels.length > 0 && (
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <div className="px-4 py-1.5">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Filtrera etiketter</p>
+                        {data.labels.map(l => {
+                          const active = (filters.labels || []).includes(l.id);
+                          return (
+                            <button
+                              key={l.id}
+                              onClick={() => setFilters(f => {
+                                const current = f.labels || [];
+                                return { ...f, labels: current.includes(l.id) ? current.filter(id => id !== l.id) : [...current, l.id] };
+                              })}
+                              className="w-full flex items-center gap-2 py-1.5 text-left text-sm"
+                            >
+                              <div className="w-3 h-3 rounded-sm shrink-0 border" style={{ background: active ? l.color : 'transparent', borderColor: l.color }} />
+                              <span className="text-gray-700 text-xs">{l.name}</span>
+                              {active && <svg className="w-3.5 h-3.5 text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {user && (
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button onClick={() => { signOut(); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">Logga ut</button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* User avatar / Auth — desktop only */}
+          <div className="hidden md:block">
           {user ? (
             <div className="relative group">
               <button className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-indigo-300 transition-colors" title={user.email}>
@@ -483,18 +556,29 @@ function AppInner() {
               Logga in
             </button>
           ) : null}
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar backdrop (mobile only) */}
+        {isMobile && sidebarOpen && (
+          <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+        )}
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col relative`}>
+        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} ${isMobile ? 'fixed inset-y-0 left-0 z-40 pt-0' : ''} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col relative`}>
           {data.backgroundImage && (
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url(${data.backgroundImage})` }}>
               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
             </div>
           )}
           <div className="p-4 flex flex-col flex-1 relative" style={{ minWidth: '18rem' }}>
+            {/* Mobile sidebar close button */}
+            {isMobile && (
+              <button onClick={() => setSidebarOpen(false)} className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            )}
             {/* Sidebar tabs */}
             <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
               <button
@@ -533,19 +617,42 @@ function AppInner() {
 
         {/* Board */}
         <main ref={mainRef} className="flex-1 overflow-x-auto overflow-y-auto" style={data.backgroundImage ? { backgroundImage: `url(${data.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
-          <div className="min-w-max p-4">
-            <div className="flex gap-0 mb-0">
-              {data.columns.map(col => (
-                <div key={col} className="w-96 shrink-0 px-2">
-                  <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-700">{col}</h3>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                      {filteredTasks.filter(t => t.status === col).length}
-                    </span>
-                  </div>
-                </div>
+          {/* Mobile column tabs */}
+          {isMobile && (
+            <div className="flex bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10 overflow-x-auto">
+              {data.columns.map((col, idx) => (
+                <button
+                  key={col}
+                  onClick={() => setMobileColumnIdx(idx)}
+                  className={`flex-1 min-w-0 px-2 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors ${
+                    mobileColumnIdx === idx ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-gray-500'
+                  }`}
+                >
+                  {col}
+                  <span className="ml-1 text-[10px] text-gray-400 bg-gray-100 px-1 py-0.5 rounded-full">
+                    {filteredTasks.filter(t => t.status === col).length}
+                  </span>
+                </button>
               ))}
             </div>
+          )}
+
+          <div className={`${isMobile ? '' : 'min-w-max'} p-2 md:p-4`}>
+            {/* Desktop column headers */}
+            {!isMobile && (
+              <div className="flex gap-0 mb-0">
+                {data.columns.map(col => (
+                  <div key={col} className="w-96 shrink-0 px-2">
+                    <div className="flex items-center justify-between px-3 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-700">{col}</h3>
+                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                        {filteredTasks.filter(t => t.status === col).length}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {data.stories.map((story, storyIdx) => {
               const storyFilteredTasks = filteredTasks.filter(t => t.storyId === story.id);
@@ -555,56 +662,81 @@ function AppInner() {
 
               if (filters.status && storyFilteredTasks.length === 0 && !filters.priority && filters.labels.length === 0) return null;
 
+              // On mobile, filter to only the selected column
+              const mobileCol = data.columns[mobileColumnIdx] || data.columns[0];
+              const mobileStoryTasks = isMobile ? storyFilteredTasks.filter(t => t.status === mobileCol) : [];
+
+              // Skip stories with no tasks in the selected mobile column
+              if (isMobile && mobileStoryTasks.length === 0 && !collapsed) {
+                // Still show the story header with quick-add
+              }
+
               return (
                 <div
                   key={story.id}
                   ref={el => storyRowRefs.current[story.id] = el}
-                  className={`mt-3 rounded-2xl border ${rowColor} overflow-hidden`}
+                  className={`mt-2 md:mt-3 rounded-xl md:rounded-2xl border ${rowColor} overflow-hidden`}
                   style={storyHexColor ? { borderColor: storyHexColor + '40', background: storyHexColor + '0a' } : undefined}
                 >
                   <button
                     onClick={() => toggleStoryCollapse(story.id)}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-white/40 transition-colors text-left"
+                    className="flex items-center gap-2 w-full px-3 md:px-4 py-2 md:py-2.5 hover:bg-white/40 transition-colors text-left"
                   >
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
                     <div className="w-3 h-3 rounded-full shrink-0" style={storyHexColor ? { background: storyHexColor } : undefined} />
-                    <span className="text-sm font-semibold text-gray-700">{story.title}</span>
-                    <span className="text-xs text-gray-400">({storyFilteredTasks.length} tasks)</span>
+                    <span className="text-sm font-semibold text-gray-700 truncate">{story.title}</span>
+                    <span className="text-xs text-gray-400 shrink-0">({isMobile ? mobileStoryTasks.length : storyFilteredTasks.length})</span>
                   </button>
 
                   {!collapsed && (
-                    <div className="flex">
-                      {data.columns.map(col => {
-                        const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
-                        const colTasks = storyFilteredTasks
-                          .filter(t => t.status === col)
-                          .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
-                        return (
-                          <DropZone
-                            key={col}
-                            storyId={story.id}
-                            col={col}
-                          >
-                            <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                              {colTasks.map(task => (
-                                <div key={task.id} className="min-w-0">
-                                  <StickyNote
-                                    task={task}
-                                    labels={data.labels}
-                                    storyColor={storyHexColor}
-                                    onOpen={setDetailTask}
-                                    onToggleCheck={toggleCheckItem}
-                                    onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })}
-                                    deadlineEnabled={data.deadlineEnabled}
-                                  />
+                    <>
+                      {/* Desktop: all columns in a row */}
+                      {!isMobile && (
+                        <div className="flex">
+                          {data.columns.map(col => {
+                            const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
+                            const colTasks = storyFilteredTasks
+                              .filter(t => t.status === col)
+                              .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
+                            return (
+                              <DropZone key={col} storyId={story.id} col={col}>
+                                <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                                  {colTasks.map(task => (
+                                    <div key={task.id} className="min-w-0">
+                                      <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                            <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
-                          </DropZone>
-                        );
-                      })}
-                    </div>
+                                <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
+                              </DropZone>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Mobile: single column view */}
+                      {isMobile && (
+                        <div className="p-2">
+                          {(() => {
+                            const PRIO_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, '': 4 };
+                            const colTasks = mobileStoryTasks
+                              .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
+                            return (
+                              <>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {colTasks.map(task => (
+                                    <div key={task.id}>
+                                      <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} />
+                                    </div>
+                                  ))}
+                                </div>
+                                <QuickAddTask storyId={story.id} status={mobileCol} onAdd={addTask} />
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );

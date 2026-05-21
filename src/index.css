@@ -83,3 +83,10 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #5b5d64; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Mobile adjustments */
+@media (max-width: 767px) {
+  .sticky-card { transform: none !important; }
+  .sticky-card:hover { transform: none !important; }
+  .sticky-card::after { width: 16px; height: 16px; }
+}

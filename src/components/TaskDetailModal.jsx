@@ -110,8 +110,8 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
 
   return (
     <Modal open={open} onClose={handleClose} title="Uppgiftsdetaljer" wide>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="md:col-span-2 space-y-4 order-2 md:order-1">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Titel</label>
             <input value={form.title} onChange={e => update('title', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-sm" />
@@ -226,7 +226,7 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
             </div>
           </div>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 order-1 md:order-2">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
             <select value={form.status} onChange={e => update('status', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300">
