@@ -54,8 +54,7 @@ function AppInner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
-  const [dragBoard, setDragBoard] = useState(null); // id of board being dragged
-  const [dragOverBoard, setDragOverBoard] = useState(null); // id of board being hovered
+  const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
   // Refs for scrolling to stories
@@ -87,19 +86,33 @@ function AppInner() {
     setRenamingBoard(null);
   };
 
-  const switchBoard = (id) => { setActiveId(id); setBoardMenuOpen(false); setFilters({ status: '', priority: '', labels: [] }); setCollapsedStories({}); };
+  const switchBoard = (id) => {
+    setActiveId(id);
+    setFilters({ status: '', priority: '', labels: [] });
+    setCollapsedStories({});
+    setBoardMenuOpen(false);
+  };
 
-  const reorderBoards = (fromId, toId) => {
-    if (fromId === toId) return;
-    setBoards(bs => {
-      const list = [...bs];
-      const fromIdx = list.findIndex(b => b.id === fromId);
-      const toIdx = list.findIndex(b => b.id === toId);
-      if (fromIdx < 0 || toIdx < 0) return bs;
-      const [moved] = list.splice(fromIdx, 1);
-      list.splice(toIdx, 0, moved);
-      return list;
-    });
+  // Close board menu on click outside
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+    const handler = (e) => {
+      if (boardMenuRef.current && !boardMenuRef.current.contains(e.target)) {
+        setBoardMenuOpen(false);
+        setRenamingBoard(null);
+      }
+    };
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
+  }, [boardMenuOpen]);
+
+  const moveBoardUp = (idx) => {
+    if (idx === 0) return;
+    setBoards(bs => { const n = [...bs]; [n[idx - 1], n[idx]] = [n[idx], n[idx - 1]]; return n; });
+  };
+  const moveBoardDown = (idx) => {
+    if (idx >= boards.length - 1) return;
+    setBoards(bs => { const n = [...bs]; [n[idx], n[idx + 1]] = [n[idx + 1], n[idx]]; return n; });
   };
 
   const copyBoard = (board, includeTasks) => {
@@ -304,71 +317,62 @@ function AppInner() {
               )}
             </button>
             {/* Board switcher */}
-            <div className="relative">
+            <div className="relative" ref={boardMenuRef}>
               <button onClick={() => setBoardMenuOpen(o => !o)} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
                 <h1 className="text-lg font-bold text-gray-800">{data.name}</h1>
                 <svg className={`w-4 h-4 text-gray-400 transition-transform ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
               </button>
               {boardMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => { setBoardMenuOpen(false); setRenamingBoard(null); }} />
-                  <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[220px] py-1">
-                    {boards.map(b => (
-                      <div
-                        key={b.id}
-                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragBoard && dragBoard !== b.id) setDragOverBoard(b.id); }}
-                        onDragLeave={() => { if (dragOverBoard === b.id) setDragOverBoard(null); }}
-                        onDrop={(e) => { e.preventDefault(); if (dragBoard) reorderBoards(dragBoard, b.id); setDragBoard(null); setDragOverBoard(null); }}
-                        className={`flex items-center gap-2 px-3 py-2 transition-colors ${
-                          dragOverBoard === b.id ? 'border-t-2 border-indigo-400 bg-indigo-50/50' :
-                          dragBoard === b.id ? 'opacity-40' :
-                          b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        {/* Drag handle — only this element is draggable */}
-                        <svg
-                          draggable
-                          onDragStart={(e) => { setDragBoard(b.id); e.dataTransfer.effectAllowed = 'move'; }}
-                          onDragEnd={() => { setDragBoard(null); setDragOverBoard(null); }}
-                          className="w-3 h-3 text-gray-300 shrink-0 cursor-grab active:cursor-grabbing"
-                          fill="currentColor" viewBox="0 0 24 24"
-                        ><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
-                        {b.icon && (b.icon.startsWith('data:') ? <img src={b.icon} alt="" className="w-5 h-5 rounded object-cover shrink-0" /> : <span className="text-sm">{b.icon}</span>)}
-                        {renamingBoard === b.id ? (
-                          <input
-                            value={renameValue}
-                            onChange={e => setRenameValue(e.target.value)}
-                            onBlur={finishRename}
-                            onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setRenamingBoard(null); }}
-                            className="flex-1 px-2 py-0.5 border border-indigo-300 rounded text-sm outline-none"
-                            autoFocus
-                          />
-                        ) : (
-                          <>
-                            <button onClick={() => switchBoard(b.id)} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
-                            <button onClick={(e) => { e.stopPropagation(); startRename(b); }} className="p-1 rounded hover:bg-gray-200" title="Byt namn">
-                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); setCopyBoardModal(b); }} className="p-1 rounded hover:bg-gray-200" title="Kopiera">
-                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                            </button>
-                            {boards.length > 1 && (
-                              <button onClick={(e) => { e.stopPropagation(); deleteBoard(b.id); }} className="p-1 rounded hover:bg-red-100" title="Ta bort">
-                                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                              </button>
-                            )}
-                          </>
-                        )}
+                <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[240px] py-1">
+                  {boards.map((b, idx) => (
+                    <div
+                      key={b.id}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 transition-colors ${b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                    >
+                      {/* Move up/down buttons */}
+                      <div className="flex flex-col shrink-0">
+                        <button onClick={() => moveBoardUp(idx)} disabled={idx === 0} className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-20" title="Flytta upp">
+                          <svg className="w-2.5 h-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 15l7-7 7 7"/></svg>
+                        </button>
+                        <button onClick={() => moveBoardDown(idx)} disabled={idx === boards.length - 1} className="p-0.5 rounded hover:bg-gray-200 disabled:opacity-20" title="Flytta ner">
+                          <svg className="w-2.5 h-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
                       </div>
-                    ))}
-                    <div className="border-t border-gray-100 mt-1 pt-1">
-                      <button onClick={addBoard} className="w-full px-3 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50 text-left flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                        Ny board
-                      </button>
+                      {b.icon && (b.icon.startsWith('data:') ? <img src={b.icon} alt="" className="w-5 h-5 rounded object-cover shrink-0" /> : <span className="text-sm">{b.icon}</span>)}
+                      {renamingBoard === b.id ? (
+                        <input
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onBlur={finishRename}
+                          onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setRenamingBoard(null); }}
+                          className="flex-1 px-2 py-0.5 border border-indigo-300 rounded text-sm outline-none"
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <button onClick={() => switchBoard(b.id)} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
+                          <button onClick={() => startRename(b)} className="p-1 rounded hover:bg-gray-200" title="Byt namn">
+                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                          </button>
+                          <button onClick={() => setCopyBoardModal(b)} className="p-1 rounded hover:bg-gray-200" title="Kopiera">
+                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                          </button>
+                          {boards.length > 1 && (
+                            <button onClick={() => deleteBoard(b.id)} className="p-1 rounded hover:bg-red-100" title="Ta bort">
+                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
+                  ))}
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button onClick={addBoard} className="w-full px-3 py-2 text-sm text-indigo-600 font-medium hover:bg-indigo-50 text-left flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                      Ny board
+                    </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>

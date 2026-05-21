@@ -56,7 +56,6 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
   const handleBgUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/webp', 'image/jpeg', 'image/png'].includes(file.type)) return;
     const reader = new FileReader();
     reader.onload = (ev) => setBgPreview(ev.target.result);
     reader.readAsDataURL(file);
