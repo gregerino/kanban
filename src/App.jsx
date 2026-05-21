@@ -86,12 +86,16 @@ function AppInner() {
     setRenamingBoard(null);
   };
 
-  const switchBoard = (id) => {
-    setActiveId(id);
-    setFilters({ status: '', priority: '', labels: [] });
-    setCollapsedStories({});
+  const switchBoard = useCallback((id) => {
     setBoardMenuOpen(false);
-  };
+    setRenamingBoard(null);
+    // Delay state changes that trigger re-render so menu closes first
+    requestAnimationFrame(() => {
+      setActiveId(id);
+      setFilters({ status: '', priority: '', labels: [] });
+      setCollapsedStories({});
+    });
+  }, []);
 
   // Close board menu on click outside
   useEffect(() => {
@@ -591,6 +595,7 @@ function AppInner() {
                                     onOpen={setDetailTask}
                                     onToggleCheck={toggleCheckItem}
                                     onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })}
+                                    deadlineEnabled={data.deadlineEnabled}
                                   />
                                 </div>
                               ))}
@@ -616,6 +621,7 @@ function AppInner() {
         allLabels={data.labels}
         columns={data.columns}
         customColors={data.customColors || []}
+        deadlineEnabled={data.deadlineEnabled || false}
         onSave={saveTask}
         onDelete={deleteTask}
       />
@@ -643,6 +649,12 @@ function AppInner() {
         onSaveBackground={(img) => updateBoard(d => ({ ...d, backgroundImage: img }))}
         boardIcon={data.icon || ''}
         onSaveBoardIcon={saveBoardIcon}
+        deadlineEnabled={data.deadlineEnabled || false}
+        onSaveDeadlineEnabled={(v) => updateBoard(d => ({ ...d, deadlineEnabled: v }))}
+        labels={data.labels}
+        customColors={data.customColors || []}
+        onSaveLabels={(labels) => updateBoard(d => ({ ...d, labels }))}
+        onSaveCustomColors={(customColors) => updateBoard(d => ({ ...d, customColors }))}
       />
       <AnalyticsModal
         open={analyticsModal}
@@ -687,8 +699,19 @@ function AppInner() {
         <TaskContextMenu
           position={{ x: contextMenu.x, y: contextMenu.y }}
           task={contextMenu.task}
+          allLabels={data.labels}
           onOpen={setDetailTask}
           onDelete={deleteTask}
+          onToggleLabel={(taskId, labelId) => {
+            updateBoard(d => ({
+              ...d,
+              tasks: d.tasks.map(t => {
+                if (t.id !== taskId) return t;
+                const labels = t.labels || [];
+                return { ...t, labels: labels.includes(labelId) ? labels.filter(id => id !== labelId) : [...labels, labelId] };
+              }),
+            }));
+          }}
           onClose={() => setContextMenu(null)}
         />
       )}

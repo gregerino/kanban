@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import EmojiPicker from './EmojiPicker';
 import { useTheme } from './ThemeContext';
+import { uid } from '../utils/helpers';
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -13,29 +14,42 @@ const PRESET_BACKGROUNDS = [
   { id: 'valley', src: '/backgrounds/5.webp', name: 'Dalgång' },
 ];
 
+const PRESET_LABEL_COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc', '#f472b6', '#818cf8', '#2dd4bf', '#a3e635'];
+
 const TABS = [
   { key: 'general', label: 'Allmänt', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   { key: 'columns', label: 'Kolumner', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7' },
+  { key: 'labels', label: 'Etiketter', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z' },
   { key: 'appearance', label: 'Utseende', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
 ];
 
-export default function SettingsModal({ open, onClose, columns, onSave, backgroundImage, onSaveBackground, boardIcon, onSaveBoardIcon }) {
+export default function SettingsModal({ open, onClose, columns, onSave, backgroundImage, onSaveBackground, boardIcon, onSaveBoardIcon, deadlineEnabled, onSaveDeadlineEnabled, labels, customColors, onSaveLabels, onSaveCustomColors }) {
   const [tab, setTab] = useState('general');
   const [items, setItems] = useState([]);
   const [newName, setNewName] = useState('');
   const [bgPreview, setBgPreview] = useState('');
   const [iconPreview, setIconPreview] = useState('');
   const [showIconEmojiPicker, setShowIconEmojiPicker] = useState(false);
+  const [deadlineOn, setDeadlineOn] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  // Label state
+  const [labelItems, setLabelItems] = useState([]);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState('#60a5fa');
+  const [customs, setCustoms] = useState([]);
 
   useEffect(() => {
     if (open) {
       setItems([...columns]);
       setBgPreview(backgroundImage || '');
       setIconPreview(boardIcon || '');
+      setDeadlineOn(deadlineEnabled || false);
       setTab('general');
+      setLabelItems([...(labels || [])]);
+      setCustoms([...(customColors || [])]);
     }
-  }, [open, columns, backgroundImage, boardIcon]);
+  }, [open, columns, backgroundImage, boardIcon, deadlineEnabled, labels, customColors]);
 
   const rename = (idx, val) => setItems(i => i.map((c, j) => j === idx ? val : c));
   const remove = (idx) => setItems(i => i.filter((_, j) => j !== idx));
@@ -53,6 +67,20 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
     setItems(i => { const n = [...i]; [n[idx], n[idx + 1]] = [n[idx + 1], n[idx]]; return n; });
   };
 
+  // Label functions
+  const allLabelColors = [...PRESET_LABEL_COLORS, ...customs];
+  const addLabel = () => {
+    if (!newLabelName.trim()) return;
+    setLabelItems(i => [...i, { id: uid(), name: newLabelName.trim(), color: newLabelColor }]);
+    setNewLabelName('');
+  };
+  const removeLabel = (id) => setLabelItems(i => i.filter(x => x.id !== id));
+  const addCustomColor = () => {
+    if (!customs.includes(newLabelColor) && !PRESET_LABEL_COLORS.includes(newLabelColor)) {
+      setCustoms(c => [...c, newLabelColor]);
+    }
+  };
+
   const handleBgUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -65,7 +93,6 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
   const handleIconUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/webp', 'image/jpeg', 'image/png', 'image/svg+xml'].includes(file.type)) return;
     const reader = new FileReader();
     reader.onload = (ev) => setIconPreview(ev.target.result);
     reader.readAsDataURL(file);
@@ -77,6 +104,9 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
     onSave(cleaned);
     onSaveBackground(bgPreview);
     onSaveBoardIcon(iconPreview);
+    onSaveDeadlineEnabled(deadlineOn);
+    onSaveLabels(labelItems);
+    onSaveCustomColors(customs);
     onClose();
   };
 
@@ -113,6 +143,25 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
                     <p className="text-xs text-gray-400">Version {APP_VERSION}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Deadline toggle */}
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Deadlines</p>
+                    <p className="text-xs text-gray-400">Visa deadline-fält på taskkort</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDeadlineOn(d => !d)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${deadlineOn ? 'bg-indigo-500' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deadlineOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
               </div>
 
               <div>
@@ -186,6 +235,39 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
                 <button onClick={add} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600">Lägg till</button>
               </div>
               <p className="text-xs text-gray-400">Att byta namn på en kolumn uppdaterar alla dess uppgifter. Att ta bort en kolumn raderar INTE uppgifter — flytta dem först.</p>
+            </div>
+          )}
+
+          {/* Labels */}
+          {tab === 'labels' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-1">Etiketter</h3>
+              <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
+                {labelItems.map(l => (
+                  <div key={l.id} className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full shrink-0" style={{ background: l.color }} />
+                    <span className="text-sm flex-1">{l.name}</span>
+                    <button onClick={() => removeLabel(l.id)} className="text-xs text-red-500 hover:text-red-700">Ta bort</button>
+                  </div>
+                ))}
+                {labelItems.length === 0 && <p className="text-xs text-gray-400">Inga etiketter ännu.</p>}
+              </div>
+              <div className="flex gap-2 items-center">
+                <input value={newLabelName} onChange={e => setNewLabelName(e.target.value)} placeholder="Etikettnamn..." className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none" onKeyDown={e => e.key === 'Enter' && addLabel()} />
+                <button onClick={addLabel} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600">Lägg till</button>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Färg</label>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {allLabelColors.map(c => (
+                    <button key={c} onClick={() => setNewLabelColor(c)} className={`w-6 h-6 rounded-full ${newLabelColor === c ? 'ring-2 ring-offset-1 ring-gray-800' : ''} hover:scale-110 transition-transform`} style={{ background: c }} />
+                  ))}
+                  <div className="flex items-center gap-1 ml-1">
+                    <input type="color" value={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                    <button onClick={addCustomColor} className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">+ Spara färg</button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

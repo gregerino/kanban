@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function TaskContextMenu({ position, task, onDelete, onOpen, onClose }) {
+export default function TaskContextMenu({ position, task, allLabels = [], onDelete, onOpen, onToggleLabel, onClose }) {
   const menuRef = useRef(null);
+  const [showLabels, setShowLabels] = useState(false);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -24,8 +25,10 @@ export default function TaskContextMenu({ position, task, onDelete, onOpen, onCl
     zIndex: 200,
   };
 
+  const taskLabels = task.labels || [];
+
   return (
-    <div ref={menuRef} style={style} className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-in fade-in">
+    <div ref={menuRef} style={style} className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[180px] animate-in fade-in">
       <button
         onClick={() => { onOpen(task); onClose(); }}
         className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -35,6 +38,45 @@ export default function TaskContextMenu({ position, task, onDelete, onOpen, onCl
         </svg>
         Öppna
       </button>
+
+      {/* Labels submenu */}
+      <div className="relative">
+        <button
+          onClick={() => setShowLabels(s => !s)}
+          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
+          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+          </svg>
+          Etiketter
+          <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showLabels ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        {showLabels && (
+          <div className="border-t border-gray-50 py-1">
+            {allLabels.length === 0 ? (
+              <p className="px-3 py-1.5 text-xs text-gray-400">Inga etiketter</p>
+            ) : (
+              allLabels.map(l => {
+                const active = taskLabels.includes(l.id);
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => onToggleLabel(task.id, l.id)}
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <div className="w-3.5 h-3.5 rounded-sm shrink-0 border" style={{ background: active ? l.color : 'transparent', borderColor: l.color }} />
+                    <span className="text-gray-700 text-xs">{l.name}</span>
+                    {active && (
+                      <svg className="w-3.5 h-3.5 text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="border-t border-gray-100 my-0.5" />
       <button
         onClick={() => { onDelete(task.id); onClose(); }}

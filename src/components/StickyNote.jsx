@@ -32,8 +32,8 @@ function PriorityFlag({ priority }) {
   );
 }
 
-export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu }) {
-  const isOverdue = task.deadline && task.deadline < today() && task.status !== 'Done';
+export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, deadlineEnabled }) {
+  const isOverdue = deadlineEnabled && task.deadline && task.deadline < today() && task.status !== 'Done';
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
   const colorSource = storyColor || task.color || '#fde68a';
@@ -77,7 +77,9 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
       />
       {taskLabels.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {taskLabels.map(l => <div key={l.id} className="w-8 h-1.5 rounded-full" style={{ background: l.color }} title={l.name} />)}
+          {taskLabels.map(l => (
+            <span key={l.id} className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-white leading-none" style={{ background: l.color }}>{l.name}</span>
+          ))}
         </div>
       )}
       <p className="text-sm font-semibold text-gray-900 leading-snug drop-shadow-[0_0_1px_rgba(255,255,255,0.5)] break-words">{task.title}</p>
@@ -118,8 +120,8 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
               {task.comments.length}
             </span>
           )}
-          {isOverdue && <span className="text-xs text-red-600 font-medium">Försenad</span>}
-          {task.deadline && !isOverdue && <span className="text-xs text-gray-500">{task.deadline.slice(5)}</span>}
+          {deadlineEnabled && isOverdue && <span className="text-xs text-red-600 font-medium">Försenad</span>}
+          {deadlineEnabled && task.deadline && !isOverdue && <span className="text-xs text-gray-500">{task.deadline.slice(5)}</span>}
         </div>
       </div>
     </div>

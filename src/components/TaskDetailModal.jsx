@@ -6,7 +6,7 @@ import { uid } from '../utils/helpers';
 const PRESET_COLORS = ['#fde68a', '#fdba74', '#93c5fd', '#86efac', '#fda4af', '#c4b5fd', '#f87171', '#818cf8', '#2dd4bf', '#a3e635'];
 const MAX_FILES_SIZE = 25 * 1024 * 1024; // 25MB
 
-export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete }) {
+export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete, deadlineEnabled = false }) {
   const [form, setForm] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [newCheckItem, setNewCheckItem] = useState('');
@@ -240,10 +240,12 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Deadline</label>
-            <input type="date" value={form.deadline || ''} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
-          </div>
+          {deadlineEnabled && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Deadline</label>
+              <input type="date" value={form.deadline || ''} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+          )}
           <div className="pt-4 border-t border-gray-100 space-y-2">
             <button onClick={save} className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Spara ändringar</button>
             <button onClick={() => { onDelete(form.id); onClose(); }} className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Ta bort uppgift</button>

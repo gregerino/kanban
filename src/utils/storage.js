@@ -47,6 +47,7 @@ function migrateBoard(d) {
   if (!d.backgroundImage) d.backgroundImage = '';
   if (!d.brainDumpLists) d.brainDumpLists = [];
   if (d.icon === undefined) d.icon = '';
+  if (d.deadlineEnabled === undefined) d.deadlineEnabled = false;
   d.tasks = d.tasks.map(t => ({ ...t, comments: t.comments || [], color: t.color || '#fde68a', checklist: t.checklist || [], notes: t.notes || '', files: t.files || [] }));
   d.labels = (d.labels || []).map(l => {
     if (l.color?.startsWith('bg-')) {
@@ -96,5 +97,5 @@ export function saveActiveId(id) {
 }
 
 export function createEmptyBoard(name) {
-  return { id: uid(), name, icon: '', stories: [], tasks: [], labels: [], columns: DEFAULT_COLUMNS, customColors: [], backgroundImage: '', brainDumpLists: [] };
+  return { id: uid(), name, icon: '', stories: [], tasks: [], labels: [], columns: DEFAULT_COLUMNS, customColors: [], backgroundImage: '', brainDumpLists: [], deadlineEnabled: false };
 }
