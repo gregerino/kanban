@@ -832,6 +832,7 @@ function AppInner() {
           position={{ x: contextMenu.x, y: contextMenu.y }}
           task={contextMenu.task}
           allLabels={data.labels}
+          columns={data.columns}
           onOpen={setDetailTask}
           onDelete={deleteTask}
           onToggleLabel={(taskId, labelId) => {
@@ -842,6 +843,12 @@ function AppInner() {
                 const labels = t.labels || [];
                 return { ...t, labels: labels.includes(labelId) ? labels.filter(id => id !== labelId) : [...labels, labelId] };
               }),
+            }));
+          }}
+          onMoveToColumn={(taskId, col) => {
+            updateBoard(d => ({
+              ...d,
+              tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col } : t),
             }));
           }}
           onClose={() => setContextMenu(null)}
