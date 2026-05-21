@@ -316,9 +316,6 @@ function AppInner() {
                     {boards.map(b => (
                       <div
                         key={b.id}
-                        draggable={renamingBoard !== b.id}
-                        onDragStart={(e) => { setDragBoard(b.id); e.dataTransfer.effectAllowed = 'move'; }}
-                        onDragEnd={() => { setDragBoard(null); setDragOverBoard(null); }}
                         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragBoard && dragBoard !== b.id) setDragOverBoard(b.id); }}
                         onDragLeave={() => { if (dragOverBoard === b.id) setDragOverBoard(null); }}
                         onDrop={(e) => { e.preventDefault(); if (dragBoard) reorderBoards(dragBoard, b.id); setDragBoard(null); setDragOverBoard(null); }}
@@ -327,10 +324,15 @@ function AppInner() {
                           dragBoard === b.id ? 'opacity-40' :
                           b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'
                         }`}
-                        style={{ cursor: renamingBoard === b.id ? 'text' : 'grab' }}
                       >
-                        {/* Drag handle */}
-                        <svg className="w-3 h-3 text-gray-300 shrink-0" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                        {/* Drag handle — only this element is draggable */}
+                        <svg
+                          draggable
+                          onDragStart={(e) => { setDragBoard(b.id); e.dataTransfer.effectAllowed = 'move'; }}
+                          onDragEnd={() => { setDragBoard(null); setDragOverBoard(null); }}
+                          className="w-3 h-3 text-gray-300 shrink-0 cursor-grab active:cursor-grabbing"
+                          fill="currentColor" viewBox="0 0 24 24"
+                        ><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
                         {b.icon && (b.icon.startsWith('data:') ? <img src={b.icon} alt="" className="w-5 h-5 rounded object-cover shrink-0" /> : <span className="text-sm">{b.icon}</span>)}
                         {renamingBoard === b.id ? (
                           <input
@@ -343,15 +345,15 @@ function AppInner() {
                           />
                         ) : (
                           <>
-                            <button onClick={() => { switchBoard(b.id); setBoardMenuOpen(false); }} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
-                            <button onClick={() => startRename(b)} className="p-1 rounded hover:bg-gray-200" title="Byt namn">
+                            <button onClick={() => switchBoard(b.id)} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
+                            <button onClick={(e) => { e.stopPropagation(); startRename(b); }} className="p-1 rounded hover:bg-gray-200" title="Byt namn">
                               <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                             </button>
-                            <button onClick={() => setCopyBoardModal(b)} className="p-1 rounded hover:bg-gray-200" title="Kopiera">
+                            <button onClick={(e) => { e.stopPropagation(); setCopyBoardModal(b); }} className="p-1 rounded hover:bg-gray-200" title="Kopiera">
                               <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             {boards.length > 1 && (
-                              <button onClick={() => deleteBoard(b.id)} className="p-1 rounded hover:bg-red-100" title="Ta bort">
+                              <button onClick={(e) => { e.stopPropagation(); deleteBoard(b.id); }} className="p-1 rounded hover:bg-red-100" title="Ta bort">
                                 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                               </button>
                             )}
@@ -478,11 +480,13 @@ function AppInner() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside
-          className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col`}
-          style={data.backgroundImage ? { backgroundImage: `url(${data.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: 'white' }}
-        >
-          <div className="p-4 flex flex-col flex-1 backdrop-blur-sm" style={{ minWidth: '18rem', background: data.backgroundImage ? 'rgba(255,255,255,0.82)' : undefined }}>
+        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col relative`}>
+          {data.backgroundImage && (
+            <div className="absolute inset-0 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url(${data.backgroundImage})` }}>
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
+            </div>
+          )}
+          <div className="p-4 flex flex-col flex-1 relative" style={{ minWidth: '18rem' }}>
             {/* Sidebar tabs */}
             <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
               <button
