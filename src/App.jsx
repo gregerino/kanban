@@ -54,6 +54,9 @@ function AppInner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
+  const [dragBoard, setDragBoard] = useState(null); // id of board being dragged
+  const [dragOverBoard, setDragOverBoard] = useState(null); // id of board being hovered
+  const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
   // Refs for scrolling to stories
   const storyRowRefs = useRef({});
@@ -85,6 +88,55 @@ function AppInner() {
   };
 
   const switchBoard = (id) => { setActiveId(id); setBoardMenuOpen(false); setFilters({ status: '', priority: '', labels: [] }); setCollapsedStories({}); };
+
+  const reorderBoards = (fromId, toId) => {
+    if (fromId === toId) return;
+    setBoards(bs => {
+      const list = [...bs];
+      const fromIdx = list.findIndex(b => b.id === fromId);
+      const toIdx = list.findIndex(b => b.id === toId);
+      if (fromIdx < 0 || toIdx < 0) return bs;
+      const [moved] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, moved);
+      return list;
+    });
+  };
+
+  const copyBoard = (board, includeTasks) => {
+    const newId = uid();
+    // Create new IDs for stories and map old → new
+    const storyIdMap = {};
+    const newStories = board.stories.map(s => {
+      const newSid = uid();
+      storyIdMap[s.id] = newSid;
+      return { ...s, id: newSid };
+    });
+    // Copy tasks with new IDs referencing new story IDs
+    const newTasks = includeTasks
+      ? board.tasks.map(t => ({ ...t, id: uid(), storyId: storyIdMap[t.storyId] || t.storyId }))
+      : [];
+    const newBoard = {
+      ...board,
+      id: newId,
+      name: `${board.name} (kopia)`,
+      stories: newStories,
+      tasks: newTasks,
+      labels: board.labels.map(l => ({ ...l, id: uid() })),
+    };
+    // Remap label references in tasks
+    if (includeTasks) {
+      const labelIdMap = {};
+      board.labels.forEach((old, i) => { labelIdMap[old.id] = newBoard.labels[i].id; });
+      newBoard.tasks = newBoard.tasks.map(t => ({
+        ...t,
+        labels: (t.labels || []).map(lid => labelIdMap[lid] || lid),
+      }));
+    }
+    setBoards(bs => [...bs, newBoard]);
+    setActiveId(newId);
+    setBoardMenuOpen(false);
+    setCopyBoardModal(null);
+  };
 
   // Story CRUD
   const saveStory = (story) => updateBoard(d => {
@@ -240,15 +292,15 @@ function AppInner() {
           </button>
           <div className="flex items-center gap-2">
             {/* Board icon — click opens settings on General tab */}
-            <button onClick={() => setSettingsModal(true)} className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer" style={!boardIcon ? { background: '#6366f1' } : isEmojiIcon ? { background: '#f3f4f6' } : undefined} title="Byt boardikon">
+            <button onClick={() => setSettingsModal(true)} className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer" style={!boardIcon ? { background: '#6366f1' } : undefined} title="Byt boardikon">
               {boardIcon ? (
                 isEmojiIcon ? (
-                  <span className="text-lg">{boardIcon}</span>
+                  <span className="text-2xl">{boardIcon}</span>
                 ) : (
-                  <img src={boardIcon} alt="" className="w-8 h-8 object-cover rounded-lg" />
+                  <img src={boardIcon} alt="" className="w-10 h-10 object-cover rounded-lg" />
                 )
               ) : (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
               )}
             </button>
             {/* Board switcher */}
@@ -262,7 +314,23 @@ function AppInner() {
                   <div className="fixed inset-0 z-30" onClick={() => { setBoardMenuOpen(false); setRenamingBoard(null); }} />
                   <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[220px] py-1">
                     {boards.map(b => (
-                      <div key={b.id} className={`flex items-center gap-2 px-3 py-2 ${b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                      <div
+                        key={b.id}
+                        draggable={renamingBoard !== b.id}
+                        onDragStart={(e) => { setDragBoard(b.id); e.dataTransfer.effectAllowed = 'move'; }}
+                        onDragEnd={() => { setDragBoard(null); setDragOverBoard(null); }}
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragBoard && dragBoard !== b.id) setDragOverBoard(b.id); }}
+                        onDragLeave={() => { if (dragOverBoard === b.id) setDragOverBoard(null); }}
+                        onDrop={(e) => { e.preventDefault(); if (dragBoard) reorderBoards(dragBoard, b.id); setDragBoard(null); setDragOverBoard(null); }}
+                        className={`flex items-center gap-2 px-3 py-2 transition-colors ${
+                          dragOverBoard === b.id ? 'border-t-2 border-indigo-400 bg-indigo-50/50' :
+                          dragBoard === b.id ? 'opacity-40' :
+                          b.id === activeId ? 'bg-indigo-50' : 'hover:bg-gray-50'
+                        }`}
+                        style={{ cursor: renamingBoard === b.id ? 'text' : 'grab' }}
+                      >
+                        {/* Drag handle */}
+                        <svg className="w-3 h-3 text-gray-300 shrink-0" fill="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
                         {b.icon && (b.icon.startsWith('data:') ? <img src={b.icon} alt="" className="w-5 h-5 rounded object-cover shrink-0" /> : <span className="text-sm">{b.icon}</span>)}
                         {renamingBoard === b.id ? (
                           <input
@@ -275,9 +343,12 @@ function AppInner() {
                           />
                         ) : (
                           <>
-                            <button onClick={() => switchBoard(b.id)} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
+                            <button onClick={() => { switchBoard(b.id); setBoardMenuOpen(false); }} className="flex-1 text-left text-sm text-gray-700 font-medium truncate">{b.name}</button>
                             <button onClick={() => startRename(b)} className="p-1 rounded hover:bg-gray-200" title="Byt namn">
                               <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                            </button>
+                            <button onClick={() => setCopyBoardModal(b)} className="p-1 rounded hover:bg-gray-200" title="Kopiera">
+                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             {boards.length > 1 && (
                               <button onClick={() => deleteBoard(b.id)} className="p-1 rounded hover:bg-red-100" title="Ta bort">
@@ -367,6 +438,9 @@ function AppInner() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             Inställningar
           </button>
+          {data.labels.length > 0 && (
+            <FilterBar filters={filters} setFilters={setFilters} labels={data.labels} />
+          )}
           <button onClick={() => setLabelModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
             Etiketter
@@ -402,15 +476,13 @@ function AppInner() {
         </div>
       </header>
 
-      {/* Label filter bar — only show when board has labels */}
-      {data.labels.length > 0 && (
-        <FilterBar filters={filters} setFilters={setFilters} labels={data.labels} columns={data.columns} />
-      )}
-
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 bg-white border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col`}>
-          <div className="p-4 flex flex-col flex-1" style={{ minWidth: '18rem' }}>
+        <aside
+          className={`${sidebarOpen ? 'w-72' : 'w-0'} shrink-0 border-r border-gray-100 overflow-y-auto overflow-x-hidden transition-all duration-200 flex flex-col`}
+          style={data.backgroundImage ? { backgroundImage: `url(${data.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: 'white' }}
+        >
+          <div className="p-4 flex flex-col flex-1 backdrop-blur-sm" style={{ minWidth: '18rem', background: data.backgroundImage ? 'rgba(255,255,255,0.82)' : undefined }}>
             {/* Sidebar tabs */}
             <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
               <button
@@ -572,6 +644,37 @@ function AppInner() {
         columns={data.columns}
       />
       <UpdateChecker />
+      {/* Copy board modal */}
+      {copyBoardModal && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/40" onClick={() => setCopyBoardModal(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-80 pointer-events-auto">
+              <div className="p-5">
+                <h3 className="text-base font-bold text-gray-800 mb-1">Kopiera projektbräda</h3>
+                <p className="text-xs text-gray-500 mb-4">Kopiera <span className="font-semibold">{copyBoardModal.name}</span>. Storys och etiketter kopieras alltid.</p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => copyBoard(copyBoardModal, true)}
+                    className="w-full py-2.5 px-4 bg-indigo-500 text-white text-sm font-medium rounded-xl hover:bg-indigo-600 transition-colors"
+                  >
+                    Kopiera med tasks
+                  </button>
+                  <button
+                    onClick={() => copyBoard(copyBoardModal, false)}
+                    className="w-full py-2.5 px-4 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    Kopiera utan tasks
+                  </button>
+                </div>
+              </div>
+              <div className="border-t border-gray-100 px-5 py-3">
+                <button onClick={() => setCopyBoardModal(null)} className="text-xs text-gray-400 hover:text-gray-600">Avbryt</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {contextMenu && (
         <TaskContextMenu
           position={{ x: contextMenu.x, y: contextMenu.y }}

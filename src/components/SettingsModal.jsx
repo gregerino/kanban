@@ -5,6 +5,14 @@ import { useTheme } from './ThemeContext';
 
 const APP_VERSION = __APP_VERSION__;
 
+const PRESET_BACKGROUNDS = [
+  { id: 'village', src: '/backgrounds/1.jpg', name: 'By' },
+  { id: 'enchanted', src: '/backgrounds/2.jpg', name: 'Förtrollad skog' },
+  { id: 'ruins', src: '/backgrounds/3.jpg', name: 'Ruiner' },
+  { id: 'hilltop', src: '/backgrounds/4.webp', name: 'Kulltop' },
+  { id: 'valley', src: '/backgrounds/5.webp', name: 'Dalgång' },
+];
+
 const TABS = [
   { key: 'general', label: 'Allmänt', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   { key: 'columns', label: 'Kolumner', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7' },
@@ -206,20 +214,38 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">Bakgrundsbild</h3>
-                {bgPreview ? (
-                  <div className="space-y-2">
-                    <div className="w-full h-36 rounded-lg bg-cover bg-center border border-gray-200" style={{ backgroundImage: `url(${bgPreview})` }} />
+                {bgPreview && (
+                  <div className="space-y-2 mb-4">
+                    <div className="w-full h-32 rounded-lg bg-cover bg-center border-2 border-indigo-400" style={{ backgroundImage: `url(${bgPreview})` }} />
                     <button onClick={removeBg} className="text-xs text-red-500 hover:text-red-700 font-medium">Ta bort bakgrund</button>
                   </div>
-                ) : (
-                  <label className="flex items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                )}
+                <p className="text-xs text-gray-500 mb-2">Förvalda bakgrunder</p>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {PRESET_BACKGROUNDS.map(bg => {
+                    const isActive = bgPreview === bg.src;
+                    return (
+                      <button
+                        key={bg.id}
+                        onClick={() => setBgPreview(bg.src)}
+                        className={`relative rounded-lg overflow-hidden border-2 transition-all h-16 bg-cover bg-center ${isActive ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}
+                        style={{ backgroundImage: `url(${bg.src})` }}
+                        title={bg.name}
+                      >
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
+                          <span className="text-[10px] text-white font-medium">{bg.name}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  <label className="flex items-center justify-center h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                     <div className="text-center">
-                      <svg className="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      <span className="text-xs text-gray-500">Ladda upp bild (webp, jpg, png)</span>
+                      <svg className="w-4 h-4 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                      <span className="text-[10px] text-gray-400">Egen bild</span>
                     </div>
                     <input type="file" accept=".webp,.jpg,.jpeg,.png" onChange={handleBgUpload} className="hidden" />
                   </label>
-                )}
+                </div>
               </div>
             </div>
           )}
