@@ -68,6 +68,7 @@ function AppInner() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
+  const [expandedDone, setExpandedDone] = useState({}); // { [storyId]: bool }
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
@@ -678,49 +679,126 @@ function AppInner() {
                   className={`mt-2 md:mt-3 rounded-xl md:rounded-2xl border ${rowColor} overflow-hidden`}
                   style={storyHexColor ? { borderColor: storyHexColor + '40', background: storyHexColor + '0a' } : undefined}
                 >
-                  <button
-                    onClick={() => toggleStoryCollapse(story.id)}
-                    className="flex items-center gap-2 w-full px-3 md:px-4 py-2 md:py-2.5 hover:bg-white/40 transition-colors text-left"
-                  >
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
-                    <div className="w-3 h-3 rounded-full shrink-0" style={storyHexColor ? { background: storyHexColor } : undefined} />
-                    <span className="text-sm font-semibold text-gray-700 truncate">{story.title}</span>
-                    <span className="text-xs text-gray-400 shrink-0">({isMobile ? mobileStoryTasks.length : storyFilteredTasks.length})</span>
-                  </button>
+                  {(() => {
+                    const lastCol = data.columns[data.columns.length - 1];
+                    const activeTasks = storyFilteredTasks.filter(t => t.status !== lastCol);
+                    const doneTasks = storyFilteredTasks.filter(t => t.status === lastCol);
+                    const mobileActive = isMobile ? mobileStoryTasks.filter(t => t.status !== lastCol) : [];
+                    return (
+                    <button
+                      onClick={() => toggleStoryCollapse(story.id)}
+                      className="flex items-center gap-2 w-full px-3 md:px-4 py-2 md:py-2.5 hover:bg-white/40 transition-colors text-left"
+                    >
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${collapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                      <div className="w-3 h-3 rounded-full shrink-0" style={storyHexColor ? { background: storyHexColor } : undefined} />
+                      <span className="text-sm font-semibold text-gray-700 truncate">{story.title}</span>
+                      <span className="text-xs text-gray-400 shrink-0">({isMobile ? mobileActive.length : activeTasks.length})</span>
+                      {doneTasks.length > 0 && <span className="text-xs text-green-500 shrink-0">✓ {doneTasks.length}</span>}
+                    </button>
+                    );
+                  })()}
 
                   {!collapsed && (
                     <>
                       {/* Desktop: all columns in a row */}
-                      {!isMobile && (
+                      {!isMobile && (() => {
+                        const lastCol = data.columns[data.columns.length - 1];
+                        return (
                         <div className="flex">
                           {data.columns.map(col => {
                             const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
                             const colTasks = storyFilteredTasks
                               .filter(t => t.status === col)
                               .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
+                            const isLastCol = col === lastCol;
                             return (
                               <DropZone key={col} storyId={story.id} col={col}>
-                                <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                                  {colTasks.map(task => (
-                                    <div key={task.id} className="min-w-0">
-                                      <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
+                                {isLastCol ? (
+                                  /* Last column: compact done list */
+                                  colTasks.length > 0 ? (
+                                    <div>
+                                      <button
+                                        onClick={() => setExpandedDone(s => ({ ...s, [story.id]: !s[story.id] }))}
+                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/50 transition-colors text-left"
+                                      >
+                                        <svg className={`w-3.5 h-3.5 text-green-500 transition-transform ${expandedDone[story.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+                                        <span className="text-xs font-medium text-green-600">{colTasks.length} klara</span>
+                                      </button>
+                                      {expandedDone[story.id] && (
+                                        <div className="mt-1 space-y-1 max-h-60 overflow-y-auto">
+                                          {colTasks.map(task => (
+                                            <button
+                                              key={task.id}
+                                              onClick={() => setDetailTask(task)}
+                                              onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, task }); }}
+                                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/60 text-left group transition-colors"
+                                            >
+                                              <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                                              <span className="text-xs text-gray-500 line-through truncate">{task.title}</span>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
-                                  ))}
-                                </div>
-                                <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
+                                  ) : null
+                                ) : (
+                                  /* Normal columns: sticky notes */
+                                  <>
+                                    <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                                      {colTasks.map(task => (
+                                        <div key={task.id} className="min-w-0">
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
+                                  </>
+                                )}
                               </DropZone>
                             );
                           })}
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Mobile: single column view */}
                       {isMobile && (
                         <div className="p-2">
                           {(() => {
+                            const lastCol = data.columns[data.columns.length - 1];
+                            const isLastCol = mobileCol === lastCol;
                             const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
                             const colTasks = mobileStoryTasks
                               .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
+                            if (isLastCol) {
+                              return colTasks.length > 0 ? (
+                                <div>
+                                  <button
+                                    onClick={() => setExpandedDone(s => ({ ...s, [story.id]: !s[story.id] }))}
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/50 transition-colors text-left"
+                                  >
+                                    <svg className={`w-3.5 h-3.5 text-green-500 transition-transform ${expandedDone[story.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+                                    <span className="text-xs font-medium text-green-600">{colTasks.length} klara</span>
+                                  </button>
+                                  {expandedDone[story.id] && (
+                                    <div className="mt-1 space-y-1 max-h-60 overflow-y-auto">
+                                      {colTasks.map(task => (
+                                        <button
+                                          key={task.id}
+                                          onClick={() => setDetailTask(task)}
+                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/60 text-left transition-colors"
+                                        >
+                                          <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                                          <span className="text-xs text-gray-500 line-through truncate">{task.title}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null;
+                            }
                             return (
                               <>
                                 <div className="grid grid-cols-2 gap-2">
