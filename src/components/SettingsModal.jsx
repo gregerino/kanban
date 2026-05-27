@@ -51,10 +51,12 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
         setUpdateStatus('up-to-date');
       }
     } catch (e) {
-      if (e.message?.includes('not a function') || e.message?.includes('import')) {
+      console.error('Update check error:', e);
+      const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || 'Okänt fel';
+      if (msg.includes('not a function') || msg.includes('import') || msg.includes('Failed to fetch dynamically')) {
         setUpdateStatus('not-tauri');
       } else {
-        setUpdateError(e.message || 'Okänt fel');
+        setUpdateError(msg);
         setUpdateStatus('error');
       }
     }

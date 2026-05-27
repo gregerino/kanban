@@ -10,10 +10,10 @@ export default function UpdateChecker() {
       try {
         const { check } = await import('@tauri-apps/plugin-updater');
         const update = await check();
-        if (update) setUpdateAvailable(update);
+        if (update?.available !== false && update) setUpdateAvailable(update);
       } catch (e) {
         // Not in Tauri environment or update check failed
-        console.log('Update check skipped:', e.message);
+        console.log('Update check skipped:', e?.message || e);
       }
     };
 
