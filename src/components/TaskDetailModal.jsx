@@ -6,6 +6,73 @@ import { uid } from '../utils/helpers';
 const PRESET_COLORS = ['#fde68a', '#fdba74', '#93c5fd', '#86efac', '#fda4af', '#c4b5fd', '#f87171', '#818cf8', '#2dd4bf', '#a3e635'];
 const MAX_FILES_SIZE = 25 * 1024 * 1024; // 25MB
 
+// Regex to match URLs in text
+const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+
+function LinkedText({ text }) {
+  if (!text) return null;
+  const parts = text.split(URL_REGEX);
+  return parts.map((part, i) =>
+    URL_REGEX.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-500 hover:text-indigo-700 underline break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
+function NotesField({ value, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const textareaRef = useRef(null);
+  const hasLinks = URL_REGEX.test(value);
+
+  useEffect(() => {
+    if (editing && textareaRef.current) {
+      textareaRef.current.focus();
+      // Place cursor at end
+      const len = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(len, len);
+    }
+  }, [editing]);
+
+  return (
+    <div className="border-t border-gray-100 pt-4">
+      <label className="block text-xs font-medium text-gray-500 mb-1">Anteckningar</label>
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          placeholder="Skriv anteckningar..."
+          rows={4}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-y"
+        />
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm min-h-[6rem] cursor-text whitespace-pre-wrap hover:border-gray-300 transition-colors"
+        >
+          {value ? (
+            <LinkedText text={value} />
+          ) : (
+            <span className="text-gray-400">Skriv anteckningar...</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete }) {
   const [form, setForm] = useState(null);
   const [newComment, setNewComment] = useState('');
@@ -171,10 +238,7 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
           </div>
 
           {/* Notes */}
-          <div className="border-t border-gray-100 pt-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Anteckningar</label>
-            <textarea value={form.notes || ''} onChange={e => update('notes', e.target.value)} placeholder="Skriv anteckningar..." rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-y" />
-          </div>
+          <NotesField value={form.notes || ''} onChange={val => update('notes', val)} />
 
           {/* Files */}
           <div className="border-t border-gray-100 pt-4">
@@ -219,7 +283,7 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
                     <span className="text-xs font-semibold text-gray-700">{c.author}</span>
                     <span className="text-xs text-gray-400">{new Date(c.date).toLocaleString('sv-SE')}</span>
                   </div>
-                  <p className="text-sm text-gray-600">{c.text}</p>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap"><LinkedText text={c.text} /></p>
                 </div>
               ))}
               {(!form.comments || form.comments.length === 0) && <p className="text-xs text-gray-400">Inga kommentarer ännu.</p>}
