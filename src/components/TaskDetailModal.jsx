@@ -9,6 +9,16 @@ const MAX_FILES_SIZE = 25 * 1024 * 1024; // 25MB
 // Regex to match URLs in text
 const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
 
+const openUrl = async (url) => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+  } catch {
+    // Not in Tauri — fall back to normal browser open
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
+
 function LinkedText({ text }) {
   if (!text) return null;
   const parts = text.split(URL_REGEX);
@@ -17,10 +27,8 @@ function LinkedText({ text }) {
       <a
         key={i}
         href={part}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-indigo-500 hover:text-indigo-700 underline break-all"
-        onClick={(e) => e.stopPropagation()}
+        className="text-indigo-500 hover:text-indigo-700 underline break-all cursor-pointer"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUrl(part); }}
       >
         {part}
       </a>
