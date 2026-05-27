@@ -33,6 +33,46 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
   const [deadlineOn, setDeadlineOn] = useState(false);
   const { theme, setTheme } = useTheme();
 
+  // Update checker state
+  const [updateStatus, setUpdateStatus] = useState('idle'); // 'idle' | 'checking' | 'available' | 'up-to-date' | 'installing' | 'error' | 'not-tauri'
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [updateError, setUpdateError] = useState('');
+
+  const checkForUpdates = async () => {
+    setUpdateStatus('checking');
+    setUpdateError('');
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      if (update) {
+        setUpdateInfo(update);
+        setUpdateStatus('available');
+      } else {
+        setUpdateStatus('up-to-date');
+      }
+    } catch (e) {
+      if (e.message?.includes('not a function') || e.message?.includes('import')) {
+        setUpdateStatus('not-tauri');
+      } else {
+        setUpdateError(e.message || 'Okänt fel');
+        setUpdateStatus('error');
+      }
+    }
+  };
+
+  const installUpdate = async () => {
+    if (!updateInfo) return;
+    setUpdateStatus('installing');
+    try {
+      await updateInfo.downloadAndInstall();
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (e) {
+      setUpdateError(e.message || 'Installation misslyckades');
+      setUpdateStatus('error');
+    }
+  };
+
   // Label state
   const [labelItems, setLabelItems] = useState([]);
   const [newLabelName, setNewLabelName] = useState('');
@@ -46,6 +86,9 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
       setIconPreview(boardIcon || '');
       setDeadlineOn(deadlineEnabled || false);
       setTab('general');
+      setUpdateStatus('idle');
+      setUpdateInfo(null);
+      setUpdateError('');
       setLabelItems([...(labels || [])]);
       setCustoms([...(customColors || [])]);
     }
@@ -132,17 +175,64 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
           {/* General */}
           {tab === 'general' && (
             <div className="space-y-5">
-              {/* Version */}
-              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              {/* Version + Update checker */}
+              <div className="bg-gray-50 rounded-xl px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">QuestLog</p>
+                      <p className="text-xs text-gray-400">Version {APP_VERSION}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">QuestLog</p>
-                    <p className="text-xs text-gray-400">Version {APP_VERSION}</p>
-                  </div>
+                  {updateStatus === 'idle' && (
+                    <button onClick={checkForUpdates} className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600 transition-colors">
+                      Sök efter uppdateringar
+                    </button>
+                  )}
+                  {updateStatus === 'checking' && (
+                    <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                      Söker…
+                    </span>
+                  )}
+                  {updateStatus === 'up-to-date' && (
+                    <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                      Senaste versionen
+                    </span>
+                  )}
+                  {updateStatus === 'not-tauri' && (
+                    <span className="text-xs text-gray-400">Ej tillgängligt i webbversionen</span>
+                  )}
                 </div>
+                {updateStatus === 'available' && updateInfo && (
+                  <div className="mt-3 flex items-center justify-between bg-indigo-50 rounded-lg px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-indigo-800">Version {updateInfo.version} tillgänglig</p>
+                    </div>
+                    <button
+                      onClick={installUpdate}
+                      className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-xs font-medium hover:bg-indigo-600 transition-colors"
+                    >
+                      Installera nu
+                    </button>
+                  </div>
+                )}
+                {updateStatus === 'installing' && (
+                  <div className="mt-3 flex items-center gap-2 bg-indigo-50 rounded-lg px-3 py-2.5">
+                    <svg className="w-4 h-4 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span className="text-sm text-indigo-700 font-medium">Installerar uppdatering…</span>
+                  </div>
+                )}
+                {updateStatus === 'error' && (
+                  <div className="mt-3 flex items-center justify-between bg-red-50 rounded-lg px-3 py-2.5">
+                    <p className="text-xs text-red-600">{updateError}</p>
+                    <button onClick={checkForUpdates} className="text-xs text-red-700 font-medium hover:text-red-800 shrink-0 ml-2">Försök igen</button>
+                  </div>
+                )}
               </div>
 
               {/* Deadline toggle */}
