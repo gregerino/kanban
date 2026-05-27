@@ -22,13 +22,14 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
     };
   }, [onClose]);
 
-  const openLabels = () => { clearTimeout(labelTimerRef.current); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
+  const openLabels = () => { clearTimeout(labelTimerRef.current); setShowMoveMenu(false); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
   const closeLabels = () => { clearTimeout(labelTimerRef.current); labelTimerRef.current = setTimeout(() => setShowLabels(false), 150); };
-  const openMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
+  const openMove = () => { clearTimeout(moveTimerRef.current); setShowLabels(false); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
   const closeMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(false), 150); };
 
-  // Position to the right of click, adjust if overflowing viewport
+  // Position the main menu, adjust if overflowing viewport
   const [adjustedPos, setAdjustedPos] = useState({ x: position.x + 8, y: position.y - 8 });
+  const [openDir, setOpenDir] = useState('right'); // 'right' or 'left' for submenus
   useEffect(() => {
     if (!menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
@@ -36,13 +37,13 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
     const vh = window.innerHeight;
     let x = position.x + 8;
     let y = position.y - 8;
-    // If menu goes off right edge, show to the left
     if (x + rect.width > vw - 8) x = position.x - rect.width - 8;
-    // If menu goes off bottom, move up
     if (y + rect.height > vh - 8) y = vh - rect.height - 8;
     if (y < 8) y = 8;
     if (x < 8) x = 8;
     setAdjustedPos({ x, y });
+    // Determine if submenus should open left or right
+    setOpenDir(x + rect.width + 180 < vw ? 'right' : 'left');
   }, [position.x, position.y]);
 
   const style = {
@@ -51,6 +52,10 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
     top: adjustedPos.y,
     zIndex: 200,
   };
+
+  const submenuStyle = openDir === 'right'
+    ? { position: 'absolute', left: '100%', top: 0, marginLeft: 4 }
+    : { position: 'absolute', right: '100%', top: 0, marginRight: 4 };
 
   const taskLabels = task.labels || [];
 
@@ -66,13 +71,13 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
         Öppna
       </button>
 
-      {/* Labels submenu */}
+      {/* Labels submenu — flyout to the right */}
       <div className="relative"
         onMouseEnter={openLabels}
         onMouseLeave={closeLabels}
       >
         <button
-          onClick={() => setShowLabels(s => !s)}
+          onClick={() => { setShowLabels(s => !s); setShowMoveMenu(false); }}
           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +87,12 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
           <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showLabels ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
         </button>
         {showLabels && (
-          <div className="border-t border-gray-50 py-1">
+          <div
+            style={submenuStyle}
+            className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] z-[210]"
+            onMouseEnter={() => { clearTimeout(labelTimerRef.current); }}
+            onMouseLeave={closeLabels}
+          >
             {allLabels.length === 0 ? (
               <p className="px-3 py-1.5 text-xs text-gray-400">Inga etiketter</p>
             ) : (
@@ -107,13 +117,13 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
         )}
       </div>
 
-      {/* Move to column submenu */}
+      {/* Move to column submenu — flyout to the right */}
       <div className="relative"
         onMouseEnter={openMove}
         onMouseLeave={closeMove}
       >
         <button
-          onClick={() => setShowMoveMenu(s => !s)}
+          onClick={() => { setShowMoveMenu(s => !s); setShowLabels(false); }}
           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,7 +133,12 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
           <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showMoveMenu ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
         </button>
         {showMoveMenu && (
-          <div className="border-t border-gray-50 py-1">
+          <div
+            style={submenuStyle}
+            className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[140px] z-[210]"
+            onMouseEnter={() => { clearTimeout(moveTimerRef.current); }}
+            onMouseLeave={closeMove}
+          >
             {columns.map(col => (
               <button
                 key={col}
