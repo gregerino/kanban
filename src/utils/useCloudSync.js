@@ -99,37 +99,51 @@ export default function useCloudSync(user) {
         table: 'boards',
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        // Skip if we just pushed this change
-        if (skipNextRemoteRef.current) {
-          skipNextRemoteRef.current = false;
-          return;
-        }
+        try {
+          // Skip if we just pushed this change
+          if (skipNextRemoteRef.current) {
+            skipNextRemoteRef.current = false;
+            return;
+          }
 
-        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-          const updatedBoard = payload.new.data;
-          const boardId = payload.new.board_id;
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            const updatedBoard = payload.new?.data;
+            const boardId = payload.new?.board_id;
+            if (!updatedBoard || !boardId) return;
 
-          // Don't apply if this is the same data we just pushed
-          if (lastPushedRef.current === JSON.stringify(updatedBoard)) return;
+            // Don't apply if this is the same data we just pushed
+            try {
+              if (lastPushedRef.current === JSON.stringify(updatedBoard)) return;
+            } catch { /* ignore serialization errors */ }
 
-          setBoards(prev => {
-            const exists = prev.find(b => b.id === boardId);
-            let next;
-            if (exists) {
-              next = prev.map(b => b.id === boardId ? updatedBoard : b);
-            } else {
-              next = [...prev, updatedBoard];
-            }
-            saveLocal(next);
-            return next;
-          });
-        } else if (payload.eventType === 'DELETE') {
-          const boardId = payload.old.board_id;
-          setBoards(prev => {
-            const next = prev.filter(b => b.id !== boardId);
-            saveLocal(next);
-            return next;
-          });
+            setBoards(prev => {
+              try {
+                const exists = prev.find(b => b.id === boardId);
+                let next;
+                if (exists) {
+                  next = prev.map(b => b.id === boardId ? updatedBoard : b);
+                } else {
+                  next = [...prev, updatedBoard];
+                }
+                saveLocal(next);
+                return next;
+              } catch (err) {
+                console.error('Error applying remote board update:', err);
+                return prev;
+              }
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const boardId = payload.old?.board_id;
+            if (!boardId) return;
+            setBoards(prev => {
+              const next = prev.filter(b => b.id !== boardId);
+              if (next.length === 0) return prev; // Don't allow empty boards
+              saveLocal(next);
+              return next;
+            });
+          }
+        } catch (err) {
+          console.error('Realtime sync handler error:', err);
         }
       })
       .subscribe();
