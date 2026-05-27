@@ -33,7 +33,7 @@ function PriorityFlag({ priority }) {
 }
 
 export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, deadlineEnabled }) {
-  const isOverdue = deadlineEnabled && task.deadline && task.deadline < today() && task.status !== 'Done';
+  const isOverdue = task.deadline && task.deadline < today() && task.status !== 'Done';
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
   const colorSource = storyColor || task.color || '#fde68a';
@@ -50,7 +50,14 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
 
   const handlePointerDown = (e) => {
     if (e.target.tagName === 'INPUT') return;
+    // Skip pointer events on touch devices — handled by onTouchStart
+    if (e.pointerType === 'touch') return;
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    startDrag(e, 'task', task.id, { taskId: task.id });
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.target.tagName === 'INPUT') return;
     startDrag(e, 'task', task.id, { taskId: task.id });
   };
 
@@ -63,9 +70,10 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
   return (
     <div
       onPointerDown={handlePointerDown}
+      onTouchStart={handleTouchStart}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, task); }}
-      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative touch-none min-w-0 overflow-hidden"
+      className="sticky-card pt-5 pb-3.5 px-3.5 cursor-grab active:cursor-grabbing select-none w-full relative min-w-0 overflow-hidden"
       style={{
         background: gradient || '#fde68a',
         transform: `rotate(${rotation}deg)`,
@@ -120,8 +128,18 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
               {task.comments.length}
             </span>
           )}
-          {deadlineEnabled && isOverdue && <span className="text-xs text-red-600 font-medium">Försenad</span>}
-          {deadlineEnabled && task.deadline && !isOverdue && <span className="text-xs text-gray-500">{task.deadline.slice(5)}</span>}
+          {task.deadline && isOverdue && (
+            <span className="text-xs text-red-600 font-medium flex items-center gap-0.5">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Försenad
+            </span>
+          )}
+          {task.deadline && !isOverdue && (
+            <span className="text-xs text-gray-500 flex items-center gap-0.5">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              {task.deadline.slice(5)}
+            </span>
+          )}
         </div>
       </div>
     </div>

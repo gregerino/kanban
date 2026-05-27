@@ -78,7 +78,9 @@ function AppInner() {
 
   const data = boards.find(b => b.id === activeId) || boards[0];
 
-  const updateBoard = (fn) => setBoards(bs => bs.map(b => b.id === activeId ? fn(b) : b));
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+  const updateBoard = useCallback((fn) => setBoards(bs => bs.map(b => b.id === activeIdRef.current ? fn(b) : b)), [setBoards]);
 
   // Board management
   const addBoard = () => {
@@ -264,7 +266,7 @@ function AppInner() {
     };
     window.addEventListener('board-drop', onBoardDrop);
     return () => window.removeEventListener('board-drop', onBoardDrop);
-  }, []);
+  }, [updateBoard]);
 
   const filteredTasks = useMemo(() => {
     return data.tasks.filter(t => {
@@ -707,7 +709,7 @@ function AppInner() {
                               {doneTasks.length > 0 && <span className="text-xs text-green-500 shrink-0">✓ {doneTasks.length}</span>}
                             </button>
                             {!collapsed && (
-                              <div className="p-2">
+                              <DropZone storyId={story.id} col={col}>
                                 {isLastCol ? (
                                   colTasks.length > 0 ? (
                                     <div>
@@ -743,7 +745,7 @@ function AppInner() {
                                     <QuickAddTask storyId={story.id} status={col} onAdd={addTask} />
                                   </>
                                 )}
-                              </div>
+                              </DropZone>
                             )}
                           </div>
                         );

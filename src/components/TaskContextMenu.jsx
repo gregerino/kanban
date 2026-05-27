@@ -27,11 +27,28 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
   const openMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
   const closeMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(false), 150); };
 
-  // Adjust position so menu doesn't overflow viewport
+  // Position to the right of click, adjust if overflowing viewport
+  const [adjustedPos, setAdjustedPos] = useState({ x: position.x + 8, y: position.y - 8 });
+  useEffect(() => {
+    if (!menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let x = position.x + 8;
+    let y = position.y - 8;
+    // If menu goes off right edge, show to the left
+    if (x + rect.width > vw - 8) x = position.x - rect.width - 8;
+    // If menu goes off bottom, move up
+    if (y + rect.height > vh - 8) y = vh - rect.height - 8;
+    if (y < 8) y = 8;
+    if (x < 8) x = 8;
+    setAdjustedPos({ x, y });
+  }, [position.x, position.y]);
+
   const style = {
     position: 'fixed',
-    left: position.x,
-    top: position.y,
+    left: adjustedPos.x,
+    top: adjustedPos.y,
     zIndex: 200,
   };
 
