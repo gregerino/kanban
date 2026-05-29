@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function TaskContextMenu({ position, task, allLabels = [], columns = [], onDelete, onOpen, onToggleLabel, onMoveToColumn, onClose }) {
   const menuRef = useRef(null);
+  const labelBtnRef = useRef(null);
+  const moveBtnRef = useRef(null);
   const [showLabels, setShowLabels] = useState(false);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const labelTimerRef = useRef(null);
@@ -27,9 +29,10 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
   const openMove = () => { clearTimeout(moveTimerRef.current); setShowLabels(false); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
   const closeMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(false), 150); };
 
-  // Position the main menu, adjust if overflowing viewport
+  // Position the main menu, with max height for scrollability
   const [adjustedPos, setAdjustedPos] = useState({ x: position.x + 8, y: position.y - 8 });
-  const [openDir, setOpenDir] = useState('right'); // 'right' or 'left' for submenus
+  const [openDir, setOpenDir] = useState('right');
+  const [maxH, setMaxH] = useState(undefined);
   useEffect(() => {
     if (!menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
@@ -42,20 +45,36 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
     if (y < 8) y = 8;
     if (x < 8) x = 8;
     setAdjustedPos({ x, y });
-    // Determine if submenus should open left or right
+    setMaxH(vh - y - 8);
     setOpenDir(x + rect.width + 180 < vw ? 'right' : 'left');
   }, [position.x, position.y]);
+
+  // Compute fixed submenu position from trigger button ref
+  const getSubmenuPos = (btnRef) => {
+    if (!btnRef.current || !menuRef.current) return {};
+    const btnRect = btnRef.current.getBoundingClientRect();
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const vh = window.innerHeight;
+    let top = btnRect.top;
+    if (openDir === 'right') {
+      let left = menuRect.right + 4;
+      if (top + 200 > vh) top = Math.max(8, vh - 200);
+      return { position: 'fixed', left, top, zIndex: 210 };
+    } else {
+      let right = window.innerWidth - menuRect.left + 4;
+      if (top + 200 > vh) top = Math.max(8, vh - 200);
+      return { position: 'fixed', right, top, zIndex: 210 };
+    }
+  };
 
   const style = {
     position: 'fixed',
     left: adjustedPos.x,
     top: adjustedPos.y,
     zIndex: 200,
+    maxHeight: maxH,
+    overflowY: 'auto',
   };
-
-  const submenuStyle = openDir === 'right'
-    ? { position: 'absolute', left: '100%', top: 0, marginLeft: 4 }
-    : { position: 'absolute', right: '100%', top: 0, marginRight: 4 };
 
   const taskLabels = task.labels || [];
 
@@ -71,8 +90,9 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
         Öppna
       </button>
 
-      {/* Labels submenu — flyout to the right */}
-      <div className="relative"
+      {/* Labels submenu */}
+      <div
+        ref={labelBtnRef}
         onMouseEnter={openLabels}
         onMouseLeave={closeLabels}
       >
@@ -86,39 +106,40 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
           Etiketter
           <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showLabels ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
         </button>
-        {showLabels && (
-          <div
-            style={submenuStyle}
-            className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] z-[210]"
-            onMouseEnter={() => { clearTimeout(labelTimerRef.current); }}
-            onMouseLeave={closeLabels}
-          >
-            {allLabels.length === 0 ? (
-              <p className="px-3 py-1.5 text-xs text-gray-400">Inga etiketter</p>
-            ) : (
-              allLabels.map(l => {
-                const active = taskLabels.includes(l.id);
-                return (
-                  <button
-                    key={l.id}
-                    onClick={() => onToggleLabel(task.id, l.id)}
-                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <div className="w-3.5 h-3.5 rounded-sm shrink-0 border" style={{ background: active ? l.color : 'transparent', borderColor: l.color }} />
-                    <span className="text-gray-700 text-xs">{l.name}</span>
-                    {active && (
-                      <svg className="w-3.5 h-3.5 text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
       </div>
+      {showLabels && (
+        <div
+          style={getSubmenuPos(labelBtnRef)}
+          className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] max-h-[60vh] overflow-y-auto"
+          onMouseEnter={() => { clearTimeout(labelTimerRef.current); }}
+          onMouseLeave={closeLabels}
+        >
+          {allLabels.length === 0 ? (
+            <p className="px-3 py-1.5 text-xs text-gray-400">Inga etiketter</p>
+          ) : (
+            allLabels.map(l => {
+              const active = taskLabels.includes(l.id);
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => onToggleLabel(task.id, l.id)}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <div className="w-3.5 h-3.5 rounded-sm shrink-0 border" style={{ background: active ? l.color : 'transparent', borderColor: l.color }} />
+                  <span className="text-gray-700 text-xs">{l.name}</span>
+                  {active && (
+                    <svg className="w-3.5 h-3.5 text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
 
-      {/* Move to column submenu — flyout to the right */}
-      <div className="relative"
+      {/* Move to column submenu */}
+      <div
+        ref={moveBtnRef}
         onMouseEnter={openMove}
         onMouseLeave={closeMove}
       >
@@ -132,28 +153,28 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
           Flytta till
           <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showMoveMenu ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
         </button>
-        {showMoveMenu && (
-          <div
-            style={submenuStyle}
-            className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[140px] z-[210]"
-            onMouseEnter={() => { clearTimeout(moveTimerRef.current); }}
-            onMouseLeave={closeMove}
-          >
-            {columns.map(col => (
-              <button
-                key={col}
-                onClick={() => { onMoveToColumn(task.id, col); onClose(); }}
-                className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${task.status === col ? 'font-medium' : ''}`}
-              >
-                {task.status === col && (
-                  <svg className="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
-                )}
-                <span className={`text-xs ${task.status === col ? 'text-indigo-600' : 'text-gray-700'}`}>{col}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+      {showMoveMenu && (
+        <div
+          style={getSubmenuPos(moveBtnRef)}
+          className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[140px] max-h-[60vh] overflow-y-auto"
+          onMouseEnter={() => { clearTimeout(moveTimerRef.current); }}
+          onMouseLeave={closeMove}
+        >
+          {columns.map(col => (
+            <button
+              key={col}
+              onClick={() => { onMoveToColumn(task.id, col); onClose(); }}
+              className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${task.status === col ? 'font-medium' : ''}`}
+            >
+              {task.status === col && (
+                <svg className="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+              )}
+              <span className={`text-xs ${task.status === col ? 'text-indigo-600' : 'text-gray-700'}`}>{col}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="border-t border-gray-100 my-0.5" />
       <button
