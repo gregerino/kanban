@@ -272,15 +272,18 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           ...d,
           tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
         }));
-        // Gamification: XP for moving, extra for completing
+        // Gamification: XP only when moving forward (higher column index)
         if (task && status !== task.status) {
-          gamDispatch('TASK_MOVED');
-          if (status === lastCol && task.status !== lastCol) {
-            gamDispatch('TASK_COMPLETED', task);
-            // Check if all story tasks are now done
-            const storyTasks = data.tasks.filter(t => t.storyId === storyId);
-            const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
-            if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+          const fromIdx = data.columns.indexOf(task.status);
+          const toIdx = data.columns.indexOf(status);
+          if (toIdx > fromIdx) {
+            gamDispatch('TASK_MOVED');
+            if (status === lastCol && task.status !== lastCol) {
+              gamDispatch('TASK_COMPLETED', task);
+              const storyTasks = data.tasks.filter(t => t.storyId === storyId);
+              const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
+              if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+            }
           }
         }
       }
@@ -1029,12 +1032,16 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
               tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col } : t),
             }));
             if (task && col !== task.status) {
-              gamDispatch('TASK_MOVED');
-              if (col === lastCol && task.status !== lastCol) {
-                gamDispatch('TASK_COMPLETED', task);
-                const storyTasks = data.tasks.filter(t => t.storyId === task.storyId);
-                const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
-                if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+              const fromIdx = data.columns.indexOf(task.status);
+              const toIdx = data.columns.indexOf(col);
+              if (toIdx > fromIdx) {
+                gamDispatch('TASK_MOVED');
+                if (col === lastCol && task.status !== lastCol) {
+                  gamDispatch('TASK_COMPLETED', task);
+                  const storyTasks = data.tasks.filter(t => t.storyId === task.storyId);
+                  const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
+                  if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+                }
               }
             }
           }}
