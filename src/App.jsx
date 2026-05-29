@@ -71,7 +71,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [renamingBoard, setRenamingBoard] = useState(null);
   const [renameValue, setRenameValue] = useState('');
-  const [sidebarTab, setSidebarTab] = useState('stories'); // 'stories' | 'braindump'
+  const [sidebarTab, setSidebarTab] = useState('stories'); // 'stories' | 'braindump' | 'shop' | 'avatar' | 'dungeon'
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
@@ -80,7 +80,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [dungeonTimerOpen, setDungeonTimerOpen] = useState(false);
   const [shopModal, setShopModal] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
-  const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
+  const { dispatch: gamDispatch, enabled: gamEnabled, state: gamState } = useGamification();
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
@@ -668,6 +668,37 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                 <BrainDumpPanel lists={data.brainDumpLists || []} onSave={saveBrainDumpLists} />
               </div>
             )}
+
+            {/* Gamification quick-access buttons at bottom of sidebar */}
+            {gamEnabled && (
+              <div className="mt-auto pt-3 border-t border-gray-100 space-y-1">
+                <button
+                  onClick={() => setShopModal(true)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors"
+                >
+                  <span className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center text-sm">🛒</span>
+                  Butik
+                  <span className="ml-auto text-xs text-amber-500 font-bold flex items-center gap-0.5">
+                    <svg className="w-3 h-3" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#f59e0b" stroke="#d97706" strokeWidth="1"/><circle cx="8" cy="8" r="5" fill="#fbbf24"/><text x="8" y="11" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#92400e">$</text></svg>
+                    {gamState.coins}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setAvatarModal(true)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
+                >
+                  <span className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center text-sm">🎭</span>
+                  Avatar
+                </button>
+                <button
+                  onClick={() => setDungeonTimerOpen(true)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors"
+                >
+                  <span className="w-6 h-6 rounded-md bg-purple-100 flex items-center justify-center text-sm">🏰</span>
+                  Dungeon
+                </button>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -967,9 +998,6 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
       <GamificationModal
         open={gamificationModal}
         onClose={() => setGamificationModal(false)}
-        onOpenShop={() => { setGamificationModal(false); setShopModal(true); }}
-        onOpenAvatar={() => { setGamificationModal(false); setAvatarModal(true); }}
-        onOpenDungeon={() => { setGamificationModal(false); setDungeonTimerOpen(true); }}
       />
       <ShopModal open={shopModal} onClose={() => setShopModal(false)} />
       <AvatarModal open={avatarModal} onClose={() => setAvatarModal(false)} />

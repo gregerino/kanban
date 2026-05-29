@@ -1,244 +1,890 @@
-/**
- * SVG-based layered character renderer.
- * Builds a RPG character from body parts that can be swapped via equipment/customization.
- */
+import { useRef, useEffect } from 'react';
+import { CHARACTER_CLASSES } from '../utils/shopData';
 
-import { SHOP_ITEMS, STARTER_GEAR, CHARACTER_CLASSES } from '../utils/shopData';
+const K = '#1a1a2e';
 
-// Color helpers
-const darken = (hex, amt = 30) => {
-  const num = parseInt(hex.slice(1), 16);
+function darken(hex, amt = 30) {
+  const num = parseInt(hex.replace('#',''), 16);
   const r = Math.max(0, (num >> 16) - amt);
   const g = Math.max(0, ((num >> 8) & 0xff) - amt);
   const b = Math.max(0, (num & 0xff) - amt);
-  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
-};
+  return '#' + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+}
 
-const lighten = (hex, amt = 30) => {
-  const num = parseInt(hex.slice(1), 16);
+function lighten(hex, amt = 30) {
+  const num = parseInt(hex.replace('#',''), 16);
   const r = Math.min(255, (num >> 16) + amt);
   const g = Math.min(255, ((num >> 8) & 0xff) + amt);
   const b = Math.min(255, (num & 0xff) + amt);
-  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+  return '#' + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+}
+
+function blendColor(hex1, hex2, t) {
+  const n1 = parseInt(hex1.replace('#',''), 16);
+  const n2 = parseInt(hex2.replace('#',''), 16);
+  const r = Math.round((n1 >> 16) * (1-t) + (n2 >> 16) * t);
+  const g = Math.round(((n1 >> 8) & 0xff) * (1-t) + ((n2 >> 8) & 0xff) * t);
+  const b = Math.round((n1 & 0xff) * (1-t) + (n2 & 0xff) * t);
+  return '#' + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+}
+
+// Fills a rect of pixels with shading: highlight top-left, shadow bottom-right
+function shadedRect(x, y, w, h, base, { highlight, shadow, outlineColor = K, outline = true } = {}) {
+  const hi = highlight || lighten(base, 25);
+  const sh = shadow || darken(base, 25);
+  const mid = base;
+  const pixels = [];
+  for (let row = y; row < y + h; row++) {
+    for (let col = x; col < x + w; col++) {
+      if (outline && (row === y || row === y + h - 1 || col === x || col === x + w - 1)) {
+        pixels.push([row, col, outlineColor]);
+      } else {
+        const distTop = row - y;
+        const distLeft = col - x;
+        const distBot = (y + h - 1) - row;
+        const distRight = (x + w - 1) - col;
+        if (distTop <= 1 || distLeft <= 1) pixels.push([row, col, hi]);
+        else if (distBot <= 1 || distRight <= 1) pixels.push([row, col, sh]);
+        else pixels.push([row, col, mid]);
+      }
+    }
+  }
+  return pixels;
+}
+
+function bodySprite64(skin) {
+  const hi = lighten(skin, 20);
+  const hi2 = lighten(skin, 35);
+  const sh = darken(skin, 20);
+  const sh2 = darken(skin, 35);
+  const shDeep = darken(skin, 50);
+  const blush = blendColor(skin, '#e8a0a0', 0.3);
+  const pixels = [];
+
+  // Head (rows 6-24, cols 20-43) — rounded oval with anti-aliased edges
+  const headRows = [
+    [26, 37], // row 6 — narrow top
+    [24, 39], // row 7
+    [23, 40], // row 8
+    [22, 41], // row 9
+    [21, 42], // row 10
+    [21, 42], // row 11
+    [21, 42], // row 12
+    [21, 42], // row 13
+    [21, 42], // row 14
+    [21, 42], // row 15
+    [21, 42], // row 16
+    [21, 42], // row 17
+    [22, 41], // row 18
+    [22, 41], // row 19
+    [23, 40], // row 20
+    [23, 40], // row 21
+    [24, 39], // row 22
+    [25, 38], // row 23
+    [27, 36], // row 24
+  ];
+  headRows.forEach(([left, right], i) => {
+    const row = 6 + i;
+    for (let c = left; c <= right; c++) {
+      if (c === left || c === right) {
+        pixels.push([row, c, K]);
+      } else if (c === left + 1) {
+        pixels.push([row, c, hi2]);
+      } else if (c === left + 2) {
+        pixels.push([row, c, hi]);
+      } else if (c >= right - 1) {
+        pixels.push([row, c, sh2]);
+      } else if (c >= right - 2) {
+        pixels.push([row, c, sh]);
+      } else if (i <= 2) {
+        pixels.push([row, c, hi]);
+      } else if (i >= headRows.length - 3) {
+        pixels.push([row, c, sh]);
+      } else if (i >= 13 && i <= 16 && c >= 24 && c <= 28) {
+        pixels.push([row, c, blush]);
+      } else if (i >= 13 && i <= 16 && c >= 35 && c <= 39) {
+        pixels.push([row, c, blush]);
+      } else {
+        pixels.push([row, c, skin]);
+      }
+    }
+    // Anti-aliased outline corners
+    if (i === 0) {
+      for (let c = left; c <= right; c++) pixels.push([row - 1, c, K]);
+      pixels.push([row - 1, left - 1, darken(K, -40)]);
+      pixels.push([row - 1, right + 1, darken(K, -40)]);
+    }
+    if (i === headRows.length - 1) {
+      for (let c = left + 2; c <= right - 2; c++) pixels.push([row + 1, c, K]);
+    }
+  });
+
+  // Ears with shading
+  for (let r = 12; r <= 17; r++) {
+    pixels.push([r, 19, K], [r, 20, sh], [r, 21, skin]);
+    pixels.push([r, 42, skin], [r, 43, sh2], [r, 44, K]);
+  }
+  pixels.push([11, 20, K], [18, 20, K], [11, 43, K], [18, 43, K]);
+
+  // Neck with gradient shadow (rows 25-27)
+  for (let r = 25; r <= 27; r++) {
+    const neckSh = r === 25 ? sh : r === 26 ? sh2 : shDeep;
+    for (let c = 27; c <= 36; c++) {
+      if (c <= 28) pixels.push([r, c, neckSh]);
+      else if (c >= 35) pixels.push([r, c, shDeep]);
+      else pixels.push([r, c, r === 25 ? skin : sh]);
+    }
+  }
+
+  // Torso (rows 28-44)
+  for (let r = 28; r <= 44; r++) {
+    const progress = (r - 28) / 16;
+    const leftEdge = Math.round(18 - progress * 2);
+    const rightEdge = Math.round(45 + progress * 2);
+    for (let c = leftEdge; c <= rightEdge; c++) {
+      if (c === leftEdge || c === rightEdge || r === 28) {
+        pixels.push([r, c, K]);
+      } else if (c === leftEdge + 1) {
+        pixels.push([r, c, hi2]);
+      } else if (c <= leftEdge + 3) {
+        pixels.push([r, c, hi]);
+      } else if (c >= rightEdge - 1) {
+        pixels.push([r, c, sh2]);
+      } else if (c >= rightEdge - 3) {
+        pixels.push([r, c, sh]);
+      } else {
+        pixels.push([r, c, skin]);
+      }
+    }
+  }
+
+  // Arms with gradient shading (rows 29-42)
+  for (let r = 29; r <= 42; r++) {
+    const armProgress = (r - 29) / 13;
+    for (let c = 12; c <= 17; c++) {
+      if (c === 12 || c === 17 || r === 29) pixels.push([r, c, K]);
+      else if (c === 13) pixels.push([r, c, hi]);
+      else if (c === 16) pixels.push([r, c, sh]);
+      else pixels.push([r, c, armProgress > 0.7 ? sh : skin]);
+    }
+    for (let c = 46; c <= 51; c++) {
+      if (c === 46 || c === 51 || r === 29) pixels.push([r, c, K]);
+      else if (c === 47) pixels.push([r, c, skin]);
+      else if (c === 50) pixels.push([r, c, sh2]);
+      else if (c === 49) pixels.push([r, c, sh]);
+      else pixels.push([r, c, skin]);
+    }
+  }
+  // Hands with finger detail
+  for (let c = 12; c <= 17; c++) pixels.push([43, c, K]);
+  for (let c = 46; c <= 51; c++) pixels.push([43, c, K]);
+  pixels.push([42, 13, hi], [42, 14, skin], [42, 15, skin], [42, 16, sh]);
+  pixels.push([42, 47, skin], [42, 48, skin], [42, 49, sh], [42, 50, sh2]);
+
+  // Legs with shading (rows 45-56)
+  for (let r = 45; r <= 56; r++) {
+    for (let c = 22; c <= 30; c++) {
+      if (c === 22 || c === 30) pixels.push([r, c, K]);
+      else if (c === 23) pixels.push([r, c, hi]);
+      else if (c === 24) pixels.push([r, c, hi]);
+      else if (c === 29) pixels.push([r, c, sh2]);
+      else if (c === 28) pixels.push([r, c, sh]);
+      else pixels.push([r, c, skin]);
+    }
+    for (let c = 33; c <= 41; c++) {
+      if (c === 33 || c === 41) pixels.push([r, c, K]);
+      else if (c === 34) pixels.push([r, c, skin]);
+      else if (c === 40) pixels.push([r, c, sh2]);
+      else if (c === 39) pixels.push([r, c, sh]);
+      else pixels.push([r, c, skin]);
+    }
+  }
+  // Leg separator shadow
+  for (let r = 45; r <= 56; r++) {
+    pixels.push([r, 31, sh2], [r, 32, sh2]);
+  }
+
+  // Boots with richer shading (rows 57-60)
+  const bootColor = '#5c3d2e';
+  const bootHi = lighten(bootColor, 25);
+  const bootMid = lighten(bootColor, 10);
+  const bootSh = darken(bootColor, 15);
+  const bootSh2 = darken(bootColor, 30);
+  for (let r = 57; r <= 59; r++) {
+    for (let c = 20; c <= 31; c++) {
+      if (r === 59 || c === 20 || c === 31) pixels.push([r, c, K]);
+      else if (c <= 22) pixels.push([r, c, bootHi]);
+      else if (c <= 24) pixels.push([r, c, bootMid]);
+      else if (c >= 29) pixels.push([r, c, bootSh2]);
+      else if (c >= 27) pixels.push([r, c, bootSh]);
+      else pixels.push([r, c, bootColor]);
+    }
+    for (let c = 32; c <= 43; c++) {
+      if (r === 59 || c === 32 || c === 43) pixels.push([r, c, K]);
+      else if (c <= 34) pixels.push([r, c, bootMid]);
+      else if (c >= 41) pixels.push([r, c, bootSh2]);
+      else if (c >= 39) pixels.push([r, c, bootSh]);
+      else pixels.push([r, c, bootColor]);
+    }
+  }
+  // Boot soles
+  for (let c = 20; c <= 31; c++) pixels.push([60, c, K]);
+  for (let c = 32; c <= 43; c++) pixels.push([60, c, K]);
+  // Boot top trim
+  for (let c = 21; c <= 30; c++) pixels.push([57, c, bootHi]);
+  for (let c = 33; c <= 42; c++) pixels.push([57, c, bootMid]);
+
+  return pixels;
+}
+
+function faceSprite64(eyeColor, expression) {
+  const pixels = [];
+  const white = '#f0f0f0';
+  const eyelid = '#d4a888';
+  const pupil = darken(eyeColor, 50);
+  const irisHi = lighten(eyeColor, 30);
+  const noseSh = '#c4956a';
+  const noseHi = lighten(noseSh, 15);
+  const mouthColor = '#8b5e3c';
+  const lipHi = lighten(mouthColor, 20);
+
+  if (expression === 'cool') {
+    // Sunglasses with glare
+    for (let c = 24; c <= 29; c++) {
+      pixels.push([12, c, '#374151']);
+      pixels.push([13, c, c <= 25 ? '#1a1a2e' : '#2d2d44']);
+      pixels.push([14, c, '#1a1a2e']);
+      pixels.push([15, c, '#2d2d44']);
+    }
+    for (let c = 34; c <= 39; c++) {
+      pixels.push([12, c, '#374151']);
+      pixels.push([13, c, c >= 38 ? '#1a1a2e' : '#2d2d44']);
+      pixels.push([14, c, '#1a1a2e']);
+      pixels.push([15, c, '#2d2d44']);
+    }
+    // Glare on left lens
+    pixels.push([13, 25, '#4b5563'], [13, 26, '#4b5563']);
+    // Bridge
+    for (let c = 30; c <= 33; c++) { pixels.push([13, c, '#374151']); pixels.push([14, c, '#374151']); }
+    // Frame top
+    for (let c = 24; c <= 39; c++) pixels.push([12, c, '#374151']);
+  } else {
+    // Left eye (cols 24-29, rows 12-16) — larger with more detail
+    pixels.push([12, 25, K], [12, 26, K], [12, 27, K], [12, 28, K]);
+    pixels.push([13, 24, K], [13, 25, white], [13, 26, white], [13, 27, eyeColor], [13, 28, irisHi], [13, 29, K]);
+    pixels.push([14, 24, K], [14, 25, white], [14, 26, eyeColor], [14, 27, pupil], [14, 28, eyeColor], [14, 29, K]);
+    pixels.push([15, 24, K], [15, 25, white], [15, 26, white], [15, 27, eyeColor], [15, 28, eyeColor], [15, 29, K]);
+    pixels.push([16, 25, K], [16, 26, K], [16, 27, K], [16, 28, K]);
+    // Eye highlight
+    pixels.push([13, 25, '#ffffff'], [13, 26, '#ffffff']);
+
+    // Right eye (cols 34-39, rows 12-16)
+    pixels.push([12, 35, K], [12, 36, K], [12, 37, K], [12, 38, K]);
+    pixels.push([13, 34, K], [13, 35, irisHi], [13, 36, eyeColor], [13, 37, white], [13, 38, white], [13, 39, K]);
+    pixels.push([14, 34, K], [14, 35, eyeColor], [14, 36, pupil], [14, 37, eyeColor], [14, 38, white], [14, 39, K]);
+    pixels.push([15, 34, K], [15, 35, eyeColor], [15, 36, eyeColor], [15, 37, white], [15, 38, white], [15, 39, K]);
+    pixels.push([16, 35, K], [16, 36, K], [16, 37, K], [16, 38, K]);
+    // Eye highlight
+    pixels.push([13, 37, '#ffffff'], [13, 38, '#ffffff']);
+
+    // Eyebrows
+    if (expression === 'determined' || expression === 'fierce') {
+      for (let c = 24; c <= 29; c++) pixels.push([11, c, K]);
+      for (let c = 34; c <= 39; c++) pixels.push([11, c, K]);
+      pixels.push([10, 24, K], [10, 34, K]);
+    } else {
+      for (let c = 25; c <= 28; c++) pixels.push([11, c, K]);
+      for (let c = 35; c <= 38; c++) pixels.push([11, c, K]);
+    }
+  }
+
+  // Nose with highlight (rows 17-20)
+  pixels.push([17, 31, noseHi], [17, 32, noseSh]);
+  pixels.push([18, 31, noseHi], [18, 32, noseSh]);
+  pixels.push([19, 30, noseSh], [19, 31, noseHi], [19, 32, noseSh], [19, 33, darken(noseSh, 20)]);
+  pixels.push([20, 30, darken(noseSh, 15)], [20, 33, darken(noseSh, 15)]);
+
+  // Mouth with more detail
+  if (expression === 'happy') {
+    pixels.push([21, 28, lipHi], [21, 35, lipHi]);
+    pixels.push([22, 28, mouthColor], [22, 29, mouthColor], [22, 30, mouthColor], [22, 31, mouthColor],
+                [22, 32, mouthColor], [22, 33, mouthColor], [22, 34, mouthColor], [22, 35, mouthColor]);
+    pixels.push([23, 29, mouthColor], [23, 30, '#c06060'], [23, 31, '#c06060'], [23, 32, '#c06060'],
+                [23, 33, '#c06060'], [23, 34, mouthColor]);
+    pixels.push([24, 30, mouthColor], [24, 31, mouthColor], [24, 32, mouthColor], [24, 33, mouthColor]);
+    // Teeth
+    pixels.push([22, 30, '#e8e8e8'], [22, 31, '#e8e8e8'], [22, 32, '#e8e8e8'], [22, 33, '#e8e8e8']);
+  } else if (expression === 'fierce') {
+    pixels.push([22, 28, mouthColor], [22, 35, mouthColor]);
+    pixels.push([22, 29, mouthColor], [22, 30, '#e8e8e8'], [22, 31, mouthColor],
+                [22, 32, mouthColor], [22, 33, '#e8e8e8'], [22, 34, mouthColor]);
+    pixels.push([23, 29, mouthColor], [23, 30, mouthColor], [23, 31, mouthColor],
+                [23, 32, mouthColor], [23, 33, mouthColor], [23, 34, mouthColor]);
+  } else {
+    pixels.push([22, 29, mouthColor], [22, 30, lipHi], [22, 31, lipHi],
+                [22, 32, mouthColor], [22, 33, mouthColor], [22, 34, mouthColor]);
+    pixels.push([23, 30, darken(mouthColor, 15)], [23, 31, darken(mouthColor, 15)],
+                [23, 32, darken(mouthColor, 15)], [23, 33, darken(mouthColor, 15)]);
+  }
+
+  return pixels;
+}
+
+const HAIR_SPRITES_64 = {
+  short: (color) => {
+    const hi = lighten(color, 25);
+    const sh = darken(color, 20);
+    const pixels = [];
+    // Top hair cap (rows 3-8)
+    const hairRows = [
+      [25, 38], [24, 39], [23, 40], [22, 41], [22, 41], [22, 41],
+    ];
+    hairRows.forEach(([left, right], i) => {
+      const row = 3 + i;
+      for (let c = left; c <= right; c++) {
+        if (c === left || c === right) pixels.push([row, c, K]);
+        else if (c <= left + 2) pixels.push([row, c, hi]);
+        else if (c >= right - 2) pixels.push([row, c, sh]);
+        else pixels.push([row, c, color]);
+      }
+    });
+    // Outline top
+    for (let c = 25; c <= 38; c++) pixels.push([2, c, K]);
+    // Side bangs
+    for (let r = 9; r <= 12; r++) {
+      pixels.push([r, 21, sh], [r, 22, color]);
+      pixels.push([r, 41, sh], [r, 42, color]);
+    }
+    return pixels;
+  },
+  medium: (color) => {
+    const hi = lighten(color, 25);
+    const sh = darken(color, 20);
+    const pixels = HAIR_SPRITES_64.short(color);
+    // Longer side hair
+    for (let r = 9; r <= 18; r++) {
+      pixels.push([r, 19, K], [r, 20, sh], [r, 21, color]);
+      pixels.push([r, 42, color], [r, 43, sh], [r, 44, K]);
+    }
+    return pixels;
+  },
+  long: (color) => {
+    const hi = lighten(color, 25);
+    const sh = darken(color, 20);
+    const pixels = HAIR_SPRITES_64.short(color);
+    // Flowing side hair down to torso
+    for (let r = 9; r <= 38; r++) {
+      pixels.push([r, 17, K], [r, 18, sh], [r, 19, color], [r, 20, color]);
+      pixels.push([r, 43, color], [r, 44, color], [r, 45, sh], [r, 46, K]);
+    }
+    // Taper ends
+    pixels.push([39, 18, K], [39, 19, K], [39, 20, K]);
+    pixels.push([39, 43, K], [39, 44, K], [39, 45, K]);
+    return pixels;
+  },
+  ponytail: (color) => {
+    const sh = darken(color, 20);
+    const pixels = HAIR_SPRITES_64.short(color);
+    // Ponytail going right-back
+    for (let r = 10; r <= 30; r++) {
+      pixels.push([r, 44, color], [r, 45, color], [r, 46, sh], [r, 47, K]);
+    }
+    // Tie
+    pixels.push([16, 44, K], [16, 45, K], [16, 46, K]);
+    // Taper
+    pixels.push([31, 44, K], [31, 45, K], [31, 46, K]);
+    return pixels;
+  },
+  mohawk: (color) => {
+    const sh = darken(color, 20);
+    const pixels = [];
+    // Central mohawk ridge (rows 0-6)
+    for (let r = 0; r <= 6; r++) {
+      const w = r <= 2 ? 2 : r <= 4 ? 4 : 6;
+      const left = 32 - Math.floor(w / 2);
+      for (let c = left; c < left + w; c++) {
+        if (c === left || c === left + w - 1) pixels.push([r, c, K]);
+        else pixels.push([r, c, color]);
+      }
+    }
+    // Wider base blending into head
+    for (let c = 27; c <= 36; c++) pixels.push([7, c, color]);
+    for (let c = 28; c <= 35; c++) pixels.push([8, c, color]);
+    // Shaved sides
+    for (let r = 7; r <= 10; r++) {
+      pixels.push([r, 22, darken(color, 60)], [r, 23, darken(color, 60)]);
+      pixels.push([r, 40, darken(color, 60)], [r, 41, darken(color, 60)]);
+    }
+    return pixels;
+  },
+  bald: () => [],
 };
 
-// Hair SVG generators by style (returns full SVG string, not just path)
-const HAIR_SVG = {
-  short: (color) => `
-    <path d="M34,40 C34,27 40,21 50,21 C60,21 66,27 66,40 L65,36 C64,28 59,23 50,23 C41,23 36,28 35,36 Z" fill="${color}"/>
-    <path d="M34,38 Q34,32 37,28 L36,34 Z" fill="${color}" opacity="0.7"/>
-    <path d="M66,38 Q66,32 63,28 L64,34 Z" fill="${color}" opacity="0.7"/>
-  `,
-  medium: (color) => `
-    <path d="M32,42 C32,25 38,19 50,19 C62,19 68,25 68,42" fill="${color}"/>
-    <path d="M32,42 C31,48 31,52 32,50 L32,42" fill="${color}"/>
-    <path d="M68,42 C69,48 69,52 68,50 L68,42" fill="${color}"/>
-    <path d="M36,22 C40,19 45,18 50,18 C55,18 60,19 64,22" fill="${color}" opacity="0.8"/>
-  `,
-  long: (color) => `
-    <path d="M30,42 C30,24 37,17 50,17 C63,17 70,24 70,42" fill="${color}"/>
-    <path d="M30,42 L29,58 C28,65 29,70 31,68 L32,55 L32,42" fill="${color}"/>
-    <path d="M70,42 L71,58 C72,65 71,70 69,68 L68,55 L68,42" fill="${color}"/>
-    <path d="M36,20 C41,16 46,15 50,15 C54,15 59,16 64,20" fill="${lighten(color, 15)}" opacity="0.5"/>
-  `,
-  ponytail: (color) => `
-    <path d="M34,40 C34,27 40,21 50,21 C60,21 66,27 66,40 L65,36 C64,28 59,23 50,23 C41,23 36,28 35,36 Z" fill="${color}"/>
-    <path d="M58,26 C60,28 64,32 66,40 L67,50 C67,55 68,62 66,65 C64,68 62,65 63,60 L64,50 L63,38 C62,32 60,28 58,26" fill="${color}"/>
-    <ellipse cx="65" cy="65" rx="3" ry="2" fill="${color}"/>
-  `,
-  mohawk: (color) => `
-    <path d="M46,36 L44,16 C44,10 46,6 50,6 C54,6 56,10 56,16 L54,36" fill="${color}"/>
-    <path d="M45,20 L50,5 L55,20" fill="${lighten(color, 20)}" opacity="0.3"/>
-    <path d="M36,40 C36,34 38,30 42,28" fill="${color}" opacity="0.5"/>
-    <path d="M64,40 C64,34 62,30 58,28" fill="${color}" opacity="0.5"/>
-  `,
-  bald: () => '',
+// Equipment overlays for 64x64
+const ARMOR_SPRITES_64 = {
+  starter_chain: () => {
+    const p = [];
+    const c1 = '#9ca3af', c2 = '#b0b8c4';
+    for (let r = 29; r <= 43; r++)
+      for (let c = 17; c <= 46; c++)
+        if (c > 17 && c < 46) p.push([r, c, (r + c) % 2 === 0 ? c1 : c2]);
+    return p;
+  },
+  starter_leather: () => {
+    const base = '#8b6914', hi = lighten('#8b6914', 20), sh = darken('#8b6914', 20);
+    const p = [];
+    for (let r = 29; r <= 43; r++)
+      for (let c = 17; c <= 46; c++) {
+        if (c <= 19) p.push([r, c, hi]);
+        else if (c >= 44) p.push([r, c, sh]);
+        else p.push([r, c, base]);
+      }
+    // Belt
+    for (let c = 17; c <= 46; c++) { p.push([38, c, '#5a3825']); p.push([39, c, '#78350f']); }
+    p.push([38, 31, '#ffd700'], [38, 32, '#ffd700']); // buckle
+    return p;
+  },
+  starter_robe: () => {
+    const p = [];
+    for (let r = 28; r <= 50; r++)
+      for (let c = 17; c <= 46; c++) {
+        if (c <= 19) p.push([r, c, '#4f46e5']);
+        else if (c >= 44) p.push([r, c, '#3730a3']);
+        else p.push([r, c, r % 2 === 0 ? '#4338ca' : '#4f46e5']);
+      }
+    // Trim
+    for (let c = 17; c <= 46; c++) p.push([28, c, '#ffd700']);
+    return p;
+  },
+  starter_plate: () => {
+    const base = '#78716c', hi = '#9ca3af', sh = '#57534e';
+    const p = [];
+    for (let r = 29; r <= 43; r++)
+      for (let c = 17; c <= 46; c++) {
+        if (c <= 20) p.push([r, c, hi]);
+        else if (c >= 43) p.push([r, c, sh]);
+        else p.push([r, c, base]);
+      }
+    // Shoulder pads
+    for (let r = 28; r <= 30; r++) {
+      for (let c = 10; c <= 17; c++) p.push([r, c, hi]);
+      for (let c = 46; c <= 53; c++) p.push([r, c, sh]);
+    }
+    // Chest emblem
+    p.push([34, 30, '#ffd700'], [34, 31, '#ffd700'], [34, 32, '#ffd700'], [34, 33, '#ffd700']);
+    p.push([35, 30, '#ffd700'], [35, 33, '#ffd700']);
+    return p;
+  },
+  starter_tunic: () => {
+    const p = [];
+    for (let r = 29; r <= 43; r++)
+      for (let c = 17; c <= 46; c++) {
+        if (c <= 20) p.push([r, c, '#8b5cf6']);
+        else if (c >= 43) p.push([r, c, '#6d28d9']);
+        else p.push([r, c, '#7c3aed']);
+      }
+    // V-neck detail
+    for (let i = 0; i < 4; i++) { p.push([29 + i, 30 + i, '#a78bfa']); p.push([29 + i, 33 - i, '#a78bfa']); }
+    return p;
+  },
+  eq_iron_armor: () => {
+    const p = [];
+    for (let r = 29; r <= 43; r++)
+      for (let c = 17; c <= 46; c++) {
+        if (c <= 20) p.push([r, c, '#9ca3af']);
+        else if (c >= 43) p.push([r, c, '#4b5563']);
+        else p.push([r, c, (r + c) % 3 === 0 ? '#6b7280' : '#9ca3af']);
+      }
+    for (let r = 28; r <= 30; r++) {
+      for (let c = 10; c <= 17; c++) p.push([r, c, '#6b7280']);
+      for (let c = 46; c <= 53; c++) p.push([r, c, '#6b7280']);
+    }
+    return p;
+  },
 };
 
-// Eye shapes
-const EYES = {
-  neutral: (x, y, color) => `<ellipse cx="${x}" cy="${y}" rx="3" ry="3.5" fill="white"/><circle cx="${x}" cy="${y}" r="2" fill="${color}"/><circle cx="${x+0.7}" cy="${y-0.7}" r="0.7" fill="white"/>`,
-  happy: (x, y, color) => `<path d="${`M${x-3},${y} Q${x},${y-4} ${x+3},${y}`}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`,
-  determined: (x, y, color) => `<ellipse cx="${x}" cy="${y}" rx="3" ry="3" fill="white"/><circle cx="${x}" cy="${y+0.5}" r="2.2" fill="${color}"/><circle cx="${x+0.7}" cy="${y-0.3}" r="0.7" fill="white"/><line x1="${x-3}" y1="${y-4}" x2="${x+2}" y2="${y-3}" stroke="${darken(color)}" stroke-width="1.2"/>`,
-  cool: (x, y) => `<rect x="${x-4.5}" y="${y-2}" width="9" height="4" rx="2" fill="#1a1a2e"/><rect x="${x-4}" y="${y-1.5}" width="8" height="3" rx="1.5" fill="#2d2d44" opacity="0.7"/>`,
-  fierce: (x, y, color) => `<ellipse cx="${x}" cy="${y}" rx="3" ry="2.5" fill="white"/><circle cx="${x}" cy="${y+0.3}" r="2" fill="${color}"/><circle cx="${x+0.7}" cy="${y-0.3}" r="0.6" fill="white"/><line x1="${x-4}" y1="${y-4}" x2="${x+1}" y2="${y-2.5}" stroke="${darken(color)}" stroke-width="1.5"/>`,
+const WEAPON_SPRITES_64 = {
+  starter_sword: () => {
+    const p = [];
+    // Blade
+    for (let r = 20; r <= 42; r++) {
+      p.push([r, 13, '#b0b8c4'], [r, 14, '#d1d5db'], [r, 15, '#9ca3af']);
+    }
+    // Blade tip
+    p.push([19, 14, '#d1d5db'], [18, 14, '#e5e7eb']);
+    // Guard
+    for (let c = 10; c <= 18; c++) p.push([43, c, '#78350f']);
+    for (let c = 11; c <= 17; c++) p.push([44, c, '#5a3825']);
+    // Handle
+    for (let r = 45; r <= 48; r++) { p.push([r, 13, '#3d2b1f']); p.push([r, 14, '#5a3825']); p.push([r, 15, '#3d2b1f']); }
+    // Pommel
+    p.push([49, 13, '#ffd700'], [49, 14, '#ffd700'], [49, 15, '#ffd700']);
+    return p;
+  },
+  starter_bow: () => {
+    const p = [];
+    for (let r = 16; r <= 48; r++) p.push([r, 11, '#92400e']);
+    for (let r = 18; r <= 46; r++) p.push([r, 12, '#d4a373']);
+    // Tips
+    p.push([15, 11, '#d4a373'], [15, 12, '#d4a373'], [49, 11, '#d4a373'], [49, 12, '#d4a373']);
+    // String
+    for (let r = 18; r <= 46; r++) p.push([r, 13, '#e5e7eb']);
+    return p;
+  },
+  starter_staff: () => {
+    const p = [];
+    for (let r = 8; r <= 54; r++) p.push([r, 13, '#5a3825'], [r, 14, '#78350f']);
+    // Orb
+    for (let r = 4; r <= 7; r++) for (let c = 11; c <= 16; c++) {
+      if ((r === 4 || r === 7) && (c === 11 || c === 16)) continue;
+      p.push([r, c, r <= 5 ? '#c4b5fd' : '#a78bfa']);
+    }
+    p.push([5, 13, '#ede9fe'], [5, 14, '#ede9fe']); // shine
+    return p;
+  },
+  starter_dagger: () => {
+    const p = [];
+    for (let r = 30; r <= 42; r++) p.push([r, 13, '#d1d5db'], [r, 14, '#e5e7eb']);
+    p.push([29, 13, '#e5e7eb']); // tip
+    for (let c = 11; c <= 16; c++) p.push([43, c, '#57534e']);
+    for (let r = 44; r <= 46; r++) p.push([r, 13, '#78350f'], [r, 14, '#5a3825']);
+    return p;
+  },
+  starter_lute: () => {
+    const p = [];
+    // Body
+    for (let r = 38; r <= 46; r++) for (let c = 8; c <= 16; c++) {
+      const dist = Math.abs(r - 42) + Math.abs(c - 12);
+      if (dist <= 5) p.push([r, c, dist <= 3 ? '#b8860b' : '#92400e']);
+    }
+    // Sound hole
+    p.push([42, 12, '#3d2b1f'], [42, 13, '#3d2b1f']);
+    // Neck
+    for (let r = 26; r <= 37; r++) p.push([r, 12, '#78350f'], [r, 13, '#5a3825']);
+    // Head
+    for (let c = 11; c <= 14; c++) p.push([25, c, '#78350f']);
+    p.push([24, 11, '#ffd700'], [24, 14, '#ffd700']); // tuning pegs
+    return p;
+  },
+  starter_wrench: () => {
+    const p = [];
+    for (let r = 26; r <= 48; r++) p.push([r, 13, '#6b7280'], [r, 14, '#9ca3af']);
+    // Head
+    for (let c = 10; c <= 17; c++) p.push([24, c, '#9ca3af'], [25, c, '#9ca3af']);
+    p.push([24, 12, '#6b7280'], [24, 15, '#6b7280']); // jaw gap
+    p.push([25, 12, '#6b7280'], [25, 15, '#6b7280']);
+    return p;
+  },
+  eq_wooden_sword: () => WEAPON_SPRITES_64.starter_sword(),
+  eq_fire_sword: () => {
+    const p = [];
+    for (let r = 20; r <= 42; r++) {
+      p.push([r, 13, '#dc2626'], [r, 14, '#ef4444'], [r, 15, '#b91c1c']);
+    }
+    p.push([19, 14, '#ef4444'], [18, 14, '#f97316']);
+    // Flames
+    p.push([17, 13, '#fbbf24'], [17, 14, '#f97316'], [17, 15, '#fbbf24']);
+    p.push([16, 14, '#fde68a']);
+    for (let c = 10; c <= 18; c++) p.push([43, c, '#991b1b']);
+    for (let r = 45; r <= 48; r++) p.push([r, 13, '#3d2b1f'], [r, 14, '#5a3825'], [r, 15, '#3d2b1f']);
+    p.push([49, 14, '#ffd700']);
+    return p;
+  },
+  eq_staff_wisdom: () => {
+    const p = [];
+    for (let r = 6; r <= 54; r++) p.push([r, 13, '#5b21b6'], [r, 14, '#7c3aed']);
+    for (let r = 1; r <= 5; r++) for (let c = 10; c <= 17; c++) {
+      if ((r === 1 || r === 5) && (c === 10 || c === 17)) continue;
+      p.push([r, c, r <= 2 ? '#ede9fe' : '#ddd6fe']);
+    }
+    p.push([2, 13, '#ffffff'], [2, 14, '#ffffff']); // sparkle
+    return p;
+  },
 };
 
-// Mouth shapes
-const MOUTHS = {
-  neutral: (x, y) => `<line x1="${x-3}" y1="${y}" x2="${x+3}" y2="${y}" stroke="#8b5e3c" stroke-width="1.2" stroke-linecap="round"/>`,
-  happy: (x, y) => `<path d="M${x-4},${y-1} Q${x},${y+4} ${x+4},${y-1}" fill="none" stroke="#8b5e3c" stroke-width="1.2" stroke-linecap="round"/>`,
-  determined: (x, y) => `<line x1="${x-3}" y1="${y+0.5}" x2="${x+3}" y2="${y-0.5}" stroke="#8b5e3c" stroke-width="1.5" stroke-linecap="round"/>`,
-  cool: (x, y) => `<path d="M${x-3},${y} Q${x},${y+2} ${x+3},${y}" fill="none" stroke="#8b5e3c" stroke-width="1.2" stroke-linecap="round"/>`,
-  fierce: (x, y) => `<path d="M${x-3},${y+1} L${x},${y-1} L${x+3},${y+1}" fill="none" stroke="#8b5e3c" stroke-width="1.5" stroke-linecap="round"/>`,
+const HEAD_SPRITES_64 = {
+  starter_wizard_hat: () => {
+    const p = [];
+    const base = '#3b3080', hi = '#4f46e5';
+    for (let c = 21; c <= 42; c++) p.push([6, c, base]);
+    for (let c = 22; c <= 41; c++) p.push([5, c, base]);
+    for (let c = 24; c <= 39; c++) p.push([4, c, hi]);
+    for (let c = 26; c <= 37; c++) p.push([3, c, hi]);
+    for (let c = 28; c <= 35; c++) p.push([2, c, hi]);
+    for (let c = 30; c <= 33; c++) p.push([1, c, hi]);
+    p.push([0, 31, '#ffd700'], [0, 32, '#ffd700']); // star
+    // Brim
+    for (let c = 18; c <= 45; c++) p.push([7, c, base]);
+    for (let c = 19; c <= 44; c++) p.push([8, c, darken(base, 15)]);
+    return p;
+  },
+  starter_helm: () => {
+    const p = [];
+    const base = '#78716c', hi = '#9ca3af';
+    for (let c = 21; c <= 42; c++) { p.push([4, c, hi]); p.push([5, c, base]); p.push([6, c, base]); p.push([7, c, base]); p.push([8, c, base]); }
+    for (let c = 24; c <= 39; c++) p.push([3, c, hi]);
+    // Visor
+    for (let c = 24; c <= 28; c++) p.push([13, c, '#374151']);
+    for (let c = 35; c <= 39; c++) p.push([13, c, '#374151']);
+    // Nose guard
+    p.push([10, 31, base], [11, 31, base], [12, 31, base], [13, 31, base]);
+    return p;
+  },
+  starter_goggles: () => {
+    const p = [];
+    const frame = '#78716c', lens = '#a8d8f0';
+    for (let c = 24; c <= 29; c++) { p.push([12, c, frame]); p.push([13, c, c <= 24 || c >= 29 ? frame : lens]); p.push([14, c, c <= 24 || c >= 29 ? frame : lens]); p.push([15, c, frame]); }
+    for (let c = 34; c <= 39; c++) { p.push([12, c, frame]); p.push([13, c, c <= 34 || c >= 39 ? frame : lens]); p.push([14, c, c <= 34 || c >= 39 ? frame : lens]); p.push([15, c, frame]); }
+    // Bridge
+    for (let c = 30; c <= 33; c++) p.push([13, c, frame]);
+    // Strap
+    for (let c = 20; c <= 23; c++) p.push([13, c, '#57534e']);
+    for (let c = 40; c <= 43; c++) p.push([13, c, '#57534e']);
+    return p;
+  },
+  eq_wizard_hat: () => HEAD_SPRITES_64.starter_wizard_hat(),
+  eq_golden_crown: () => {
+    const p = [];
+    for (let c = 22; c <= 41; c++) p.push([6, c, '#ffd700']);
+    for (let c = 23; c <= 40; c++) p.push([7, c, '#daa520']);
+    // Points
+    p.push([4, 24, '#ffd700'], [5, 24, '#ffd700'], [4, 31, '#ffd700'], [5, 31, '#ffd700']);
+    p.push([4, 32, '#ffd700'], [5, 32, '#ffd700'], [4, 39, '#ffd700'], [5, 39, '#ffd700']);
+    // Gems
+    p.push([6, 28, '#ef4444'], [6, 35, '#3b82f6']);
+    return p;
+  },
+  eq_mythic_helm: () => {
+    const p = [];
+    for (let c = 19; c <= 44; c++) { p.push([3, c, '#4b5563']); p.push([4, c, '#6b7280']); p.push([5, c, '#6b7280']); p.push([6, c, '#6b7280']); p.push([7, c, '#4b5563']); }
+    // Plume
+    for (let r = 0; r <= 3; r++) { p.push([r, 31, '#dc2626']); p.push([r, 32, '#ef4444']); }
+    // Visor
+    for (let c = 25; c <= 29; c++) p.push([13, c, '#1f2937']);
+    for (let c = 34; c <= 38; c++) p.push([13, c, '#1f2937']);
+    return p;
+  },
 };
 
-// Equipment overlay SVG (positioned on the character)
-const EQUIPMENT_OVERLAYS = {
-  // Head items
-  eq_wizard_hat: '<polygon points="50,8 40,32 60,32" fill="#4a3b8f" stroke="#6b5cbf" stroke-width="0.5"/><ellipse cx="50" cy="32" rx="14" ry="3" fill="#4a3b8f"/><circle cx="50" cy="12" r="2" fill="#ffd700"/>',
-  eq_golden_crown: '<path d="M38,28 L40,20 L44,26 L48,18 L52,26 L56,18 L60,26 L62,28 Z" fill="#ffd700" stroke="#daa520" stroke-width="0.5"/><circle cx="50" cy="22" r="1.5" fill="#ef4444"/>',
-  eq_mythic_helm: '<path d="M35,38 L35,26 C35,18 42,14 50,14 C58,14 65,18 65,26 L65,38" fill="#6b7280" stroke="#9ca3af" stroke-width="0.8"/><rect x="43" y="30" width="14" height="6" rx="1" fill="#374151"/><line x1="50" y1="14" x2="50" y2="8" stroke="#9ca3af" stroke-width="2"/>',
-  starter_wizard_hat: '<polygon points="50,12 42,30 58,30" fill="#3b3080" stroke="#5b4fbf" stroke-width="0.5"/><ellipse cx="50" cy="30" rx="12" ry="2.5" fill="#3b3080"/>',
-  starter_helm: '<path d="M37,38 L37,28 C37,22 42,18 50,18 C58,18 63,22 63,28 L63,38" fill="#78716c" stroke="#a8a29e" stroke-width="0.6"/><rect x="44" y="32" width="12" height="5" rx="1" fill="#57534e"/>',
-  starter_goggles: '<ellipse cx="42" cy="40" rx="6" ry="4" fill="none" stroke="#78716c" stroke-width="1.5"/><ellipse cx="58" cy="40" rx="6" ry="4" fill="none" stroke="#78716c" stroke-width="1.5"/><line x1="48" y1="40" x2="52" y2="40" stroke="#78716c" stroke-width="1"/><rect x="42" y="38" width="16" height="4" rx="2" fill="#a8a29e" opacity="0.3"/>',
-  // Weapons
-  eq_wooden_sword: '<rect x="18" y="45" width="3" height="22" rx="1" fill="#92400e" transform="rotate(-15,19,56)"/><rect x="15" y="44" width="9" height="3" rx="1" fill="#78350f" transform="rotate(-15,19,45)"/>',
-  eq_fire_sword: '<rect x="18" y="40" width="3" height="28" rx="1" fill="#dc2626" transform="rotate(-15,19,54)"/><rect x="15" y="39" width="9" height="3" rx="1" fill="#991b1b" transform="rotate(-15,19,40)"/><circle cx="15" cy="42" r="4" fill="#f97316" opacity="0.5"><animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite"/></circle>',
-  eq_staff_wisdom: '<rect x="18" y="35" width="2.5" height="35" rx="1" fill="#7c3aed" transform="rotate(-10,19,52)"/><circle cx="17" cy="36" r="4" fill="#a78bfa" opacity="0.7"><animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/></circle>',
-  starter_sword: '<rect x="20" y="48" width="2.5" height="18" rx="1" fill="#78716c" transform="rotate(-15,21,57)"/><rect x="17" y="47" width="8" height="2.5" rx="1" fill="#57534e" transform="rotate(-15,21,48)"/>',
-  starter_bow: '<path d="M18,42 C14,50 14,60 18,68" fill="none" stroke="#92400e" stroke-width="2"/><line x1="18" y1="42" x2="18" y2="68" stroke="#d4a373" stroke-width="0.8"/>',
-  starter_staff: '<rect x="19" y="38" width="2" height="30" rx="1" fill="#78350f" transform="rotate(-8,20,53)"/><circle cx="19" cy="38" r="3" fill="#a67c52" opacity="0.6"/>',
-  starter_dagger: '<rect x="22" y="55" width="2" height="12" rx="0.5" fill="#9ca3af" transform="rotate(-20,23,61)"/><rect x="20" y="54" width="6" height="2" rx="0.5" fill="#57534e" transform="rotate(-20,23,55)"/>',
-  starter_lute: '<ellipse cx="22" cy="62" rx="5" ry="7" fill="#92400e" transform="rotate(-15,22,62)"/><rect x="21" y="48" width="2" height="14" rx="0.5" fill="#78350f" transform="rotate(-15,22,55)"/>',
-  starter_wrench: '<rect x="20" y="52" width="2" height="16" rx="1" fill="#6b7280" transform="rotate(-10,21,60)"/><path d="M18,52 C16,50 17,47 20,47 C23,47 24,50 22,52" fill="#9ca3af" transform="rotate(-10,20,50)"/>',
-  // Back items
-  eq_leather_cloak: '<path d="M35,42 C32,50 30,65 33,78 L50,75 L67,78 C70,65 68,50 65,42" fill="#92400e" opacity="0.6"/>',
-  eq_dragon_cloak: '<path d="M35,42 C32,50 28,65 33,80 L50,76 L67,80 C72,65 68,50 65,42" fill="#7f1d1d" opacity="0.7"/><path d="M33,80 L30,82 M67,80 L70,82" stroke="#991b1b" stroke-width="1.5"/>',
-  eq_guild_banner: '<line x1="70" y1="30" x2="70" y2="75" stroke="#78350f" stroke-width="2"/><rect x="60" y="30" width="18" height="14" rx="1" fill="#4338ca"/><text x="69" y="41" text-anchor="middle" fill="#ffd700" font-size="8" font-weight="bold">G</text>',
-  starter_cloak: '<path d="M37,44 C35,52 34,62 36,74 L50,72 L64,74 C66,62 65,52 63,44" fill="#78716c" opacity="0.45"/>',
-  starter_hood: '<path d="M37,44 C35,52 34,60 36,70 L50,68 L64,70 C66,60 65,52 63,44" fill="#1a1a2e" opacity="0.5"/><path d="M38,32 C38,24 43,20 50,20 C57,20 62,24 62,32" fill="#1a1a2e" opacity="0.3"/>',
-  // Armor
-  eq_iron_armor: '<path d="M38,45 L38,62 L50,65 L62,62 L62,45 L56,42 L44,42 Z" fill="#9ca3af" stroke="#6b7280" stroke-width="0.8"/>',
-  starter_chain: '<path d="M40,56 L40,72 L50,74 L60,72 L60,56 L55,54 L45,54 Z" fill="#9ca3af" opacity="0.5"/><line x1="45" y1="58" x2="55" y2="58" stroke="#d4d4d8" stroke-width="0.5"/><line x1="45" y1="62" x2="55" y2="62" stroke="#d4d4d8" stroke-width="0.5"/><line x1="45" y1="66" x2="55" y2="66" stroke="#d4d4d8" stroke-width="0.5"/>',
-  starter_leather: '<path d="M40,56 L40,72 L50,74 L60,72 L60,56 L55,54 L45,54 Z" fill="#92400e" opacity="0.45"/>',
-  starter_robe: '<path d="M38,54 L38,78 L50,80 L62,78 L62,54 L56,52 L44,52 Z" fill="#4338ca" opacity="0.4"/><line x1="50" y1="54" x2="50" y2="78" stroke="#6366f1" stroke-width="0.5" opacity="0.5"/>',
-  starter_plate: '<path d="M39,55 L39,70 L50,72 L61,70 L61,55 L56,53 L44,53 Z" fill="#78716c" stroke="#a8a29e" stroke-width="0.6"/><circle cx="50" cy="60" r="3" fill="#a8a29e" opacity="0.4"/>',
-  starter_tunic: '<path d="M40,56 L40,74 L50,76 L60,74 L60,56 L55,54 L45,54 Z" fill="#7c3aed" opacity="0.35"/>',
+const BACK_SPRITES_64 = {
+  starter_cloak: () => {
+    const p = [];
+    for (let r = 28; r <= 52; r++) {
+      p.push([r, 15, '#78716c'], [r, 16, '#6b7280']);
+      p.push([r, 47, '#6b7280'], [r, 48, '#78716c']);
+    }
+    return p;
+  },
+  starter_hood: () => {
+    const p = [];
+    for (let c = 22; c <= 41; c++) { p.push([4, c, '#1a1a2e']); p.push([5, c, '#2d2d44']); p.push([6, c, '#1a1a2e']); }
+    for (let r = 28; r <= 48; r++) {
+      p.push([r, 15, '#1a1a2e'], [r, 16, '#2d2d44']);
+      p.push([r, 47, '#2d2d44'], [r, 48, '#1a1a2e']);
+    }
+    return p;
+  },
+  eq_leather_cloak: () => {
+    const p = [];
+    for (let r = 28; r <= 52; r++) {
+      p.push([r, 13, '#92400e'], [r, 14, '#7c3415'], [r, 15, '#92400e'], [r, 16, '#7c3415']);
+      p.push([r, 47, '#7c3415'], [r, 48, '#92400e'], [r, 49, '#7c3415'], [r, 50, '#92400e']);
+    }
+    return p;
+  },
+  eq_dragon_cloak: () => {
+    const p = [];
+    for (let r = 28; r <= 52; r++) {
+      p.push([r, 13, '#7f1d1d'], [r, 14, '#991b1b'], [r, 15, '#991b1b'], [r, 16, '#7f1d1d']);
+      p.push([r, 47, '#7f1d1d'], [r, 48, '#991b1b'], [r, 49, '#991b1b'], [r, 50, '#7f1d1d']);
+    }
+    p.push([52, 12, '#ef4444'], [52, 51, '#ef4444']);
+    return p;
+  },
+  eq_guild_banner: () => {
+    const p = [];
+    for (let r = 12; r <= 50; r++) p.push([r, 52, '#78350f'], [r, 53, '#5a3825']);
+    for (let r = 12; r <= 26; r++) for (let c = 48; c <= 58; c++) p.push([r, c, '#4338ca']);
+    p.push([19, 52, '#ffd700'], [19, 53, '#ffd700'], [20, 52, '#ffd700'], [20, 53, '#ffd700']);
+    return p;
+  },
 };
 
-// Companion positions
-const COMPANION_SPRITES = {
-  pet_owl: { emoji: '🦉', x: 75, y: 65 },
-  pet_fox: { emoji: '🦊', x: 75, y: 70 },
-  pet_wolf: { emoji: '🐺', x: 75, y: 68 },
-  pet_dragon: { emoji: '🐉', x: 72, y: 20 },
-  pet_raven: { emoji: '🐦‍⬛', x: 72, y: 25 },
-  pet_fairy: { emoji: '🧚', x: 70, y: 30 },
-  pet_golem: { emoji: '🗿', x: 78, y: 65 },
-  pet_phoenix: { emoji: '🔥', x: 72, y: 18 },
+const COMPANION_PIXELS_64 = {
+  pet_owl: () => {
+    const ox = 52, oy = 38;
+    return [
+      [oy, ox+1, '#92400e'], [oy, ox+2, '#92400e'], [oy, ox+3, '#92400e'],
+      [oy+1, ox, '#92400e'], [oy+1, ox+1, '#fbbf24'], [oy+1, ox+2, K], [oy+1, ox+3, '#fbbf24'], [oy+1, ox+4, '#92400e'],
+      [oy+2, ox, '#78350f'], [oy+2, ox+1, '#92400e'], [oy+2, ox+2, '#d97706'], [oy+2, ox+3, '#92400e'], [oy+2, ox+4, '#78350f'],
+      [oy+3, ox+1, '#78350f'], [oy+3, ox+2, '#78350f'], [oy+3, ox+3, '#78350f'],
+      [oy+4, ox+1, '#5a3825'], [oy+4, ox+3, '#5a3825'],
+    ];
+  },
+  pet_fox: () => {
+    const ox = 52, oy = 42;
+    return [
+      [oy, ox, '#ea580c'], [oy, ox+4, '#ea580c'],
+      [oy+1, ox, '#f97316'], [oy+1, ox+1, '#fff'], [oy+1, ox+2, K], [oy+1, ox+3, '#fff'], [oy+1, ox+4, '#f97316'],
+      [oy+2, ox, '#f97316'], [oy+2, ox+1, '#f97316'], [oy+2, ox+2, '#f97316'], [oy+2, ox+3, '#f97316'], [oy+2, ox+4, '#f97316'],
+      [oy+3, ox+1, '#f97316'], [oy+3, ox+2, '#fff'], [oy+3, ox+3, '#f97316'],
+      [oy+4, ox+2, '#f97316'],
+    ];
+  },
+  pet_wolf: () => {
+    const ox = 52, oy = 40;
+    return [
+      [oy, ox, '#6b7280'], [oy, ox+4, '#6b7280'],
+      [oy+1, ox, '#9ca3af'], [oy+1, ox+1, '#d1d5db'], [oy+1, ox+2, K], [oy+1, ox+3, '#d1d5db'], [oy+1, ox+4, '#9ca3af'],
+      [oy+2, ox, '#6b7280'], [oy+2, ox+1, '#9ca3af'], [oy+2, ox+2, '#6b7280'], [oy+2, ox+3, '#9ca3af'], [oy+2, ox+4, '#6b7280'],
+      [oy+3, ox+1, '#6b7280'], [oy+3, ox+2, '#6b7280'], [oy+3, ox+3, '#6b7280'],
+      [oy+4, ox, '#6b7280'], [oy+4, ox+4, '#6b7280'],
+    ];
+  },
+  pet_dragon: () => {
+    const ox = 50, oy = 8;
+    return [
+      [oy, ox+2, '#22c55e'], [oy, ox+3, '#22c55e'],
+      [oy+1, ox+1, '#16a34a'], [oy+1, ox+2, '#4ade80'], [oy+1, ox+3, '#4ade80'], [oy+1, ox+4, '#16a34a'],
+      [oy+2, ox, '#16a34a'], [oy+2, ox+1, '#22c55e'], [oy+2, ox+2, '#4ade80'], [oy+2, ox+3, '#22c55e'], [oy+2, ox+4, '#16a34a'], [oy+2, ox+5, '#16a34a'],
+      [oy+3, ox+1, '#16a34a'], [oy+3, ox+2, '#16a34a'], [oy+3, ox+3, '#16a34a'], [oy+3, ox+4, '#16a34a'],
+      [oy+4, ox+1, '#0d6b3a'], [oy+4, ox+4, '#0d6b3a'],
+      [oy+2, ox+6, '#f97316'], [oy+1, ox+5, '#fbbf24'],
+    ];
+  },
+  pet_raven: () => {
+    const ox = 52, oy = 12;
+    return [
+      [oy, ox+2, '#1a1a2e'],
+      [oy+1, ox+1, '#374151'], [oy+1, ox+2, '#1f2937'], [oy+1, ox+3, '#374151'],
+      [oy+2, ox, '#4b5563'], [oy+2, ox+1, '#374151'], [oy+2, ox+2, '#1f2937'], [oy+2, ox+3, '#374151'], [oy+2, ox+4, '#4b5563'],
+      [oy+3, ox+1, '#374151'], [oy+3, ox+3, '#374151'],
+    ];
+  },
+  pet_fairy: () => {
+    const ox = 52, oy = 16;
+    return [
+      [oy, ox+1, '#f0abfc'], [oy, ox+3, '#f0abfc'],
+      [oy+1, ox, '#e879f9'], [oy+1, ox+1, '#fde68a'], [oy+1, ox+2, '#fde68a'], [oy+1, ox+3, '#fde68a'], [oy+1, ox+4, '#e879f9'],
+      [oy+2, ox+1, '#fde68a'], [oy+2, ox+2, '#fbbf24'], [oy+2, ox+3, '#fde68a'],
+      [oy+3, ox+2, '#fde68a'],
+    ];
+  },
+  pet_golem: () => {
+    const ox = 52, oy = 40;
+    return [
+      [oy, ox, '#78716c'], [oy, ox+1, '#a8a29e'], [oy, ox+2, '#a8a29e'], [oy, ox+3, '#a8a29e'], [oy, ox+4, '#78716c'],
+      [oy+1, ox, '#a8a29e'], [oy+1, ox+1, '#d6d3d1'], [oy+1, ox+2, '#e7e5e4'], [oy+1, ox+3, '#d6d3d1'], [oy+1, ox+4, '#a8a29e'],
+      [oy+2, ox, '#78716c'], [oy+2, ox+1, '#a8a29e'], [oy+2, ox+2, '#a8a29e'], [oy+2, ox+3, '#a8a29e'], [oy+2, ox+4, '#78716c'],
+      [oy+3, ox, '#57534e'], [oy+3, ox+1, '#78716c'], [oy+3, ox+3, '#78716c'], [oy+3, ox+4, '#57534e'],
+      [oy+4, ox, '#44403c'], [oy+4, ox+4, '#44403c'],
+    ];
+  },
+  pet_phoenix: () => {
+    const ox = 50, oy = 6;
+    return [
+      [oy, ox+3, '#fbbf24'],
+      [oy+1, ox+2, '#f97316'], [oy+1, ox+3, '#ef4444'], [oy+1, ox+4, '#f97316'],
+      [oy+2, ox+1, '#fbbf24'], [oy+2, ox+2, '#ef4444'], [oy+2, ox+3, '#dc2626'], [oy+2, ox+4, '#ef4444'], [oy+2, ox+5, '#fbbf24'],
+      [oy+3, ox+2, '#f97316'], [oy+3, ox+3, '#ef4444'], [oy+3, ox+4, '#f97316'],
+      [oy+4, ox+3, '#f97316'],
+    ];
+  },
 };
 
-// Aura effects
-const AURA_EFFECTS = {
-  aura_fire: '<circle cx="50" cy="55" r="30" fill="url(#auraFire)" opacity="0.3"><animate attributeName="r" values="28;32;28" dur="2s" repeatCount="indefinite"/></circle>',
-  aura_arcane: '<circle cx="50" cy="55" r="28" fill="none" stroke="#a855f7" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"><animateTransform attributeName="transform" type="rotate" values="0 50 55;360 50 55" dur="8s" repeatCount="indefinite"/></circle><circle cx="50" cy="55" r="22" fill="none" stroke="#c084fc" stroke-width="0.5" stroke-dasharray="2,4" opacity="0.4"><animateTransform attributeName="transform" type="rotate" values="360 50 55;0 50 55" dur="6s" repeatCount="indefinite"/></circle>',
-  aura_lightning: '<line x1="42" y1="25" x2="38" y2="35" stroke="#facc15" stroke-width="1.5" opacity="0.6"><animate attributeName="opacity" values="0;1;0" dur="0.5s" repeatCount="indefinite"/></line><line x1="58" y1="28" x2="62" y2="38" stroke="#facc15" stroke-width="1" opacity="0.4"><animate attributeName="opacity" values="0;0.8;0" dur="0.7s" repeatCount="indefinite"/></line>',
-  aura_golden: '<circle cx="50" cy="50" r="35" fill="url(#auraGolden)" opacity="0.25"><animate attributeName="opacity" values="0.15;0.3;0.15" dur="3s" repeatCount="indefinite"/></circle>',
-  aura_shadow: '<circle cx="50" cy="70" rx="25" ry="8" fill="#1a1a2e" opacity="0.4"><animate attributeName="opacity" values="0.3;0.5;0.3" dur="2s" repeatCount="indefinite"/></circle>',
-  aura_runes: '<text x="30" y="35" fill="#a78bfa" font-size="8" opacity="0.6"><animateTransform attributeName="transform" type="rotate" values="0 50 55;360 50 55" dur="10s" repeatCount="indefinite"/>ᚠ ᚢ ᚦ</text><text x="55" y="75" fill="#c084fc" font-size="7" opacity="0.5"><animateTransform attributeName="transform" type="rotate" values="360 50 55;0 50 55" dur="12s" repeatCount="indefinite"/>ᚨ ᚱ ᚲ</text>',
-};
-
-// Background scenes
-const BACKGROUNDS = {
-  default: '<rect width="100" height="100" fill="#1e293b"/><rect y="75" width="100" height="25" fill="#334155"/><circle cx="80" cy="15" r="6" fill="#fde68a" opacity="0.7"/>',
-  bg_forest: '<rect width="100" height="100" fill="#1a3a1a"/><rect y="72" width="100" height="28" fill="#2d5a2d"/><circle cx="15" cy="40" r="12" fill="#22543d"/><circle cx="85" cy="35" r="15" fill="#276749"/><rect x="13" y="52" width="4" height="25" fill="#5a3e2b"/><rect x="83" y="50" width="4" height="27" fill="#5a3e2b"/><circle cx="20" cy="12" r="5" fill="#fde68a" opacity="0.5"/>',
-  bg_guild_hall: '<rect width="100" height="100" fill="#2d1b4e"/><rect y="70" width="100" height="30" fill="#44337a"/><rect x="10" y="20" width="80" height="55" fill="#553c9a" rx="3"/><rect x="20" y="25" width="15" height="25" fill="#6b46c1" rx="2"/><rect x="65" y="25" width="15" height="25" fill="#6b46c1" rx="2"/><rect x="42" y="30" width="16" height="40" rx="2" fill="#4c1d95"/>',
-  bg_castle: '<rect width="100" height="100" fill="#1e293b"/><rect y="65" width="100" height="35" fill="#475569"/><rect x="5" y="30" width="20" height="40" fill="#64748b"/><rect x="75" y="30" width="20" height="40" fill="#64748b"/><rect x="30" y="20" width="40" height="50" fill="#64748b"/><rect x="45" y="45" width="10" height="25" rx="5 5 0 0" fill="#334155"/><polygon points="8,30 15,15 22,30" fill="#64748b"/><polygon points="78,30 85,15 92,30" fill="#64748b"/>',
-  bg_dungeon: '<rect width="100" height="100" fill="#0f172a"/><rect y="75" width="100" height="25" fill="#1e293b"/><rect x="5" y="10" width="8" height="70" fill="#334155"/><rect x="87" y="10" width="8" height="70" fill="#334155"/><circle cx="50" cy="15" r="3" fill="#f97316" opacity="0.5"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite"/></circle><circle cx="20" cy="25" r="2" fill="#f97316" opacity="0.3"><animate attributeName="opacity" values="0.2;0.5;0.2" dur="3s" repeatCount="indefinite"/></circle>',
-  bg_dragon_lair: '<rect width="100" height="100" fill="#1c1917"/><rect y="70" width="100" height="30" fill="#292524"/><circle cx="50" cy="80" r="20" fill="#fbbf24" opacity="0.15"/><circle cx="40" cy="82" r="3" fill="#fbbf24" opacity="0.4"/><circle cx="60" cy="78" r="2" fill="#fbbf24" opacity="0.3"/><circle cx="55" cy="85" r="2.5" fill="#f59e0b" opacity="0.35"/><circle cx="30" cy="20" r="8" fill="#dc2626" opacity="0.1"><animate attributeName="r" values="6;10;6" dur="4s" repeatCount="indefinite"/></circle>',
-  bg_sky_kingdom: '<rect width="100" height="100" fill="#1e3a5f"/><ellipse cx="25" cy="80" rx="30" ry="8" fill="#e2e8f0" opacity="0.3"/><ellipse cx="70" cy="70" rx="25" ry="6" fill="#e2e8f0" opacity="0.2"/><ellipse cx="50" cy="85" rx="40" ry="10" fill="#cbd5e1" opacity="0.25"/><circle cx="80" cy="15" r="8" fill="#fef3c7" opacity="0.6"/><circle cx="15" cy="12" r="1" fill="white" opacity="0.6"/><circle cx="35" cy="8" r="0.8" fill="white" opacity="0.5"/><circle cx="65" cy="5" r="1.2" fill="white" opacity="0.4"/>',
-};
+function drawBackground64(ctx) {
+  // Dark gradient sky
+  const skyTop = '#0f172a';
+  const skyBot = '#1e293b';
+  for (let r = 0; r < 64; r++) {
+    const t = r / 63;
+    const rt = Math.round(parseInt(skyTop.slice(1,3),16) * (1-t) + parseInt(skyBot.slice(1,3),16) * t);
+    const gt = Math.round(parseInt(skyTop.slice(3,5),16) * (1-t) + parseInt(skyBot.slice(3,5),16) * t);
+    const bt = Math.round(parseInt(skyTop.slice(5,7),16) * (1-t) + parseInt(skyBot.slice(5,7),16) * t);
+    ctx.fillStyle = `rgb(${rt},${gt},${bt})`;
+    ctx.fillRect(0, r, 64, 1);
+  }
+  // Ground
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(0, 54, 64, 10);
+  ctx.fillStyle = '#475569';
+  ctx.fillRect(0, 54, 64, 1);
+  // Moon
+  ctx.fillStyle = '#fde68a';
+  ctx.fillRect(52, 4, 4, 4);
+  ctx.fillStyle = '#fef3c7';
+  ctx.fillRect(53, 5, 2, 2);
+  // Stars
+  ctx.fillStyle = '#e2e8f0';
+  ctx.fillRect(8, 3, 1, 1); ctx.fillRect(20, 6, 1, 1);
+  ctx.fillRect(38, 2, 1, 1); ctx.fillRect(45, 8, 1, 1);
+  ctx.fillRect(12, 10, 1, 1); ctx.fillRect(58, 6, 1, 1);
+}
 
 export default function AvatarRenderer({ avatar, size = 200, showBackground = true }) {
-  if (!avatar) return null;
+  const canvasRef = useRef(null);
 
-  const skin = avatar.skinTone || '#fde2c4';
-  const skinDark = darken(skin, 20);
-  const hair = avatar.hairColor || '#2c1810';
-  const eye = avatar.eyeColor || '#4a3728';
-  const expr = avatar.expression || 'neutral';
-  const hairStyle = avatar.hairStyle || 'short';
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !avatar) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
 
-  const bgKey = avatar.equippedBackground || 'default';
-  const bgSvg = BACKGROUNDS[bgKey] || BACKGROUNDS.default;
-  const auraSvg = avatar.equippedAura ? (AURA_EFFECTS[avatar.equippedAura] || '') : '';
+    const skin = avatar.skinTone || '#fde2c4';
+    const hair = avatar.hairColor || '#2c1810';
+    const eye = avatar.eyeColor || '#4a3728';
+    const expr = avatar.expression || 'neutral';
+    const hairStyle = avatar.hairStyle || 'short';
 
-  // Resolve equipment: use equipped items, fall back to class starter gear
-  const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
-  const startGear = cls.startGear || {};
-  const resolveGear = (slot) => avatar[slot] || startGear[slot.replace('equipped', '').toLowerCase()] || null;
+    const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
+    const sg = cls.startGear || {};
+    const armorId = avatar.equippedArmor || sg.armor || null;
+    const weaponId = avatar.equippedWeapon || sg.weapon || null;
+    const headId = avatar.equippedHead || sg.head || null;
+    const backId = avatar.equippedBack || sg.back || null;
 
-  const headId = avatar.equippedHead || startGear.head || null;
-  const weaponId = avatar.equippedWeapon || startGear.weapon || null;
-  const backId = avatar.equippedBack || startGear.back || null;
-  const armorId = avatar.equippedArmor || startGear.armor || null;
+    if (showBackground) drawBackground64(ctx);
 
-  const headSvg = headId ? (EQUIPMENT_OVERLAYS[headId] || '') : '';
-  const weaponSvg = weaponId ? (EQUIPMENT_OVERLAYS[weaponId] || '') : '';
-  const backSvg = backId ? (EQUIPMENT_OVERLAYS[backId] || '') : '';
-  const armorSvg = armorId ? (EQUIPMENT_OVERLAYS[armorId] || '') : '';
+    const layers = [];
 
-  // Companion
-  const companion = avatar.equippedCompanion ? COMPANION_SPRITES[avatar.equippedCompanion] : null;
+    if (backId && BACK_SPRITES_64[backId]) layers.push(...BACK_SPRITES_64[backId]());
 
-  const hairGen = HAIR_SVG[hairStyle] || HAIR_SVG.short;
-  const hairSvg = hairGen(hair);
-  const eyeL = EYES[expr] ? EYES[expr](42, 42, eye) : EYES.neutral(42, 42, eye);
-  const eyeR = EYES[expr] ? EYES[expr](58, 42, eye) : EYES.neutral(58, 42, eye);
-  const mouth = MOUTHS[expr] ? MOUTHS[expr](50, 52) : MOUTHS.neutral(50, 52);
+    layers.push(...bodySprite64(skin));
 
-  const svgContent = `
-    <defs>
-      <radialGradient id="auraFire" cx="50%" cy="50%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="transparent"/></radialGradient>
-      <radialGradient id="auraGolden" cx="50%" cy="50%"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="transparent"/></radialGradient>
-    </defs>
-    <!-- Background -->
-    ${showBackground ? bgSvg : '<rect width="100" height="100" fill="#1e293b"/>'}
-    <!-- Aura (behind character) -->
-    ${auraSvg}
-    <!-- Back equipment (cloaks, banners) -->
-    ${backSvg}
-    <!-- Body -->
-    <rect x="42" y="58" width="16" height="22" rx="3" fill="${skin}"/>
-    <!-- Legs -->
-    <rect x="43" y="76" width="6" height="16" rx="2" fill="${skinDark}"/>
-    <rect x="51" y="76" width="6" height="16" rx="2" fill="${skinDark}"/>
-    <!-- Boots -->
-    <rect x="41" y="88" width="9" height="5" rx="2" fill="#4a3728"/>
-    <rect x="50" y="88" width="9" height="5" rx="2" fill="#4a3728"/>
-    <!-- Arms -->
-    <rect x="32" y="58" width="10" height="4" rx="2" fill="${skin}"/>
-    <rect x="58" y="58" width="10" height="4" rx="2" fill="${skin}"/>
-    <rect x="30" y="55" width="6" height="18" rx="3" fill="${skin}"/>
-    <rect x="64" y="55" width="6" height="18" rx="3" fill="${skin}"/>
-    <!-- Hands -->
-    <circle cx="33" cy="73" r="3.5" fill="${skin}"/>
-    <circle cx="67" cy="73" r="3.5" fill="${skin}"/>
-    <!-- Armor/clothing overlay -->
-    ${armorSvg || `<path d="M41,56 L41,74 L50,76 L59,74 L59,56 L55,54 L45,54 Z" fill="#6b7280" opacity="0.3"/>`}
-    <!-- Weapon -->
-    ${weaponSvg}
-    <!-- Head -->
-    <ellipse cx="50" cy="40" rx="16" ry="18" fill="${skin}"/>
-    <!-- Ears -->
-    <ellipse cx="34" cy="42" rx="3" ry="4" fill="${skinDark}"/>
-    <ellipse cx="66" cy="42" rx="3" ry="4" fill="${skinDark}"/>
-    <!-- Hair -->
-    ${hairSvg}
-    <!-- Eyes -->
-    ${eyeL}
-    ${eyeR}
-    <!-- Nose -->
-    <ellipse cx="50" cy="47" rx="1.5" ry="1" fill="${skinDark}" opacity="0.4"/>
-    <!-- Mouth -->
-    ${mouth}
-    <!-- Head equipment -->
-    ${headSvg}
-    <!-- Companion -->
-    ${companion ? `<text x="${companion.x}" y="${companion.y}" font-size="14">${companion.emoji}</text>` : ''}
-  `;
+    if (armorId && ARMOR_SPRITES_64[armorId]) layers.push(...ARMOR_SPRITES_64[armorId]());
+
+    if (weaponId && WEAPON_SPRITES_64[weaponId]) layers.push(...WEAPON_SPRITES_64[weaponId]());
+
+    layers.push(...faceSprite64(eye, expr));
+
+    const hairGen = HAIR_SPRITES_64[hairStyle] || HAIR_SPRITES_64.short;
+    layers.push(...hairGen(hair));
+
+    if (headId && HEAD_SPRITES_64[headId]) layers.push(...HEAD_SPRITES_64[headId]());
+
+    if (avatar.equippedCompanion && COMPANION_PIXELS_64[avatar.equippedCompanion]) {
+      layers.push(...COMPANION_PIXELS_64[avatar.equippedCompanion]());
+    }
+
+    for (const [r, c, color] of layers) {
+      if (color && r >= 0 && r < 64 && c >= 0 && c < 64) {
+        ctx.fillStyle = color;
+        ctx.fillRect(c, r, 1, 1);
+      }
+    }
+  }, [avatar, showBackground]);
 
   return (
-    <div className="relative inline-block" style={{ width: size, height: size }}>
-      <svg
-        viewBox="0 0 100 100"
-        width={size}
-        height={size}
-        className="rounded-xl overflow-hidden"
-        style={{ imageRendering: 'auto' }}
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={64}
+      height={64}
+      style={{
+        width: size,
+        height: size,
+        imageRendering: 'pixelated',
+      }}
+      className="rounded-lg"
+    />
   );
 }
