@@ -1051,6 +1051,10 @@ function AppShell() {
     return localStorage.getItem('scrum_skipped_login') === 'true';
   });
 
+  // Gamification enabled state (global, stored in localStorage) — must be before early returns
+  const [gamificationEnabled, setGamificationEnabled] = useState(() => localStorage.getItem('questlog_gamification_enabled') === 'true');
+  const toggleGamification = useCallback((v) => { setGamificationEnabled(v); localStorage.setItem('questlog_gamification_enabled', v ? 'true' : 'false'); }, []);
+
   // Expose showLogin for the header "Logga in" button
   useEffect(() => {
     window.__showLogin = () => {
@@ -1072,10 +1076,6 @@ function AppShell() {
   if (isConfigured && !user && !skippedLogin) {
     return <LoginScreen onSkip={() => { setSkippedLogin(true); localStorage.setItem('scrum_skipped_login', 'true'); }} />;
   }
-
-  // Gamification enabled state (global, stored in localStorage)
-  const [gamificationEnabled, setGamificationEnabled] = useState(() => localStorage.getItem('questlog_gamification_enabled') === 'true');
-  const toggleGamification = (v) => { setGamificationEnabled(v); localStorage.setItem('questlog_gamification_enabled', v ? 'true' : 'false'); };
 
   return (
     <GamificationProvider enabled={gamificationEnabled}>
