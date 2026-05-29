@@ -9,7 +9,7 @@ const TABS = [
   { key: 'stats', label: 'Statistik', icon: '📊' },
 ];
 
-export default function GamificationModal({ open, onClose }) {
+export default function GamificationModal({ open, onClose, onOpenShop, onOpenAvatar, onOpenDungeon }) {
   const { levelInfo, state, achievements, dailyQuests } = useGamification();
   const [tab, setTab] = useState('overview');
 
@@ -34,6 +34,17 @@ export default function GamificationModal({ open, onClose }) {
               {t.label}
             </button>
           ))}
+          <div className="border-t border-gray-100 my-2 pt-2 space-y-1">
+            <button onClick={onOpenShop} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors text-left">
+              <span className="text-base">🛒</span>Butik
+            </button>
+            <button onClick={onOpenAvatar} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors text-left">
+              <span className="text-base">🎭</span>Avatar
+            </button>
+            <button onClick={onOpenDungeon} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors text-left">
+              <span className="text-base">🏰</span>Dungeon
+            </button>
+          </div>
         </nav>
 
         {/* Content */}

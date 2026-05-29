@@ -181,27 +181,44 @@ function bodySprite64(skin) {
   pixels.push([42, 13, hi], [42, 14, skin], [42, 15, skin], [42, 16, sh]);
   pixels.push([42, 47, skin], [42, 48, skin], [42, 49, sh], [42, 50, sh2]);
 
-  // Legs with shading (rows 45-56)
+  // Pants / trousers (rows 45-56)
+  const pantColor = '#3d4f6a';
+  const pantHi = lighten(pantColor, 20);
+  const pantMid = pantColor;
+  const pantSh = darken(pantColor, 18);
+  const pantSh2 = darken(pantColor, 32);
   for (let r = 45; r <= 56; r++) {
+    const worn = r >= 54; // faded near boots
+    const pHi = worn ? pantSh : pantHi;
+    const pMid = worn ? pantSh : pantMid;
+    const pSh = worn ? pantSh2 : pantSh;
+    // Left leg
     for (let c = 22; c <= 30; c++) {
       if (c === 22 || c === 30) pixels.push([r, c, K]);
-      else if (c === 23) pixels.push([r, c, hi]);
-      else if (c === 24) pixels.push([r, c, hi]);
-      else if (c === 29) pixels.push([r, c, sh2]);
-      else if (c === 28) pixels.push([r, c, sh]);
-      else pixels.push([r, c, skin]);
+      else if (c === 23) pixels.push([r, c, pHi]);
+      else if (c === 24) pixels.push([r, c, pHi]);
+      else if (c === 29) pixels.push([r, c, pantSh2]);
+      else if (c === 28) pixels.push([r, c, pSh]);
+      else pixels.push([r, c, pMid]);
     }
+    // Right leg
     for (let c = 33; c <= 41; c++) {
       if (c === 33 || c === 41) pixels.push([r, c, K]);
-      else if (c === 34) pixels.push([r, c, skin]);
-      else if (c === 40) pixels.push([r, c, sh2]);
-      else if (c === 39) pixels.push([r, c, sh]);
-      else pixels.push([r, c, skin]);
+      else if (c === 34) pixels.push([r, c, pMid]);
+      else if (c === 40) pixels.push([r, c, pantSh2]);
+      else if (c === 39) pixels.push([r, c, pSh]);
+      else pixels.push([r, c, pMid]);
     }
   }
+  // Belt at waist
+  for (let c = 22; c <= 41; c++) {
+    if (c >= 31 && c <= 32) continue;
+    pixels.push([45, c, darken(pantColor, 25)]);
+  }
+  pixels.push([45, 31, '#b8860b'], [45, 32, '#b8860b']); // belt buckle
   // Leg separator shadow
   for (let r = 45; r <= 56; r++) {
-    pixels.push([r, 31, sh2], [r, 32, sh2]);
+    pixels.push([r, 31, pantSh2], [r, 32, pantSh2]);
   }
 
   // Boots with richer shading (rows 57-60)
