@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useGamification } from './GamificationContext';
-import { SHOP_ITEMS, SHOP_CATEGORIES, RARITIES } from '../utils/shopData';
+import { SHOP_ITEMS, SHOP_CATEGORIES, RARITIES, openChest as rollChest } from '../utils/shopData';
 
 export default function ShopModal({ open, onClose }) {
   const { state, dispatch } = useGamification();
@@ -14,12 +14,11 @@ export default function ShopModal({ open, onClose }) {
   const handleBuy = (item) => {
     if (state.coins < item.cost) return;
     if (item.category === 'chests') {
+      // Roll reward locally so we can show it immediately
+      const reward = rollChest(item.id, owned);
+      if (!reward) return;
       dispatch('OPEN_CHEST', { chestId: item.id, cost: item.cost });
-      // Show reward after a brief delay
-      setTimeout(() => {
-        const reward = state._lastChestReward;
-        if (reward) setChestReward(reward);
-      }, 100);
+      setChestReward(reward);
       return;
     }
     if (item.perkType) {

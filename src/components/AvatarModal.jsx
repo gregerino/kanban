@@ -3,250 +3,256 @@ import Modal from './Modal';
 import { useGamification } from './GamificationContext';
 import { AVATAR_OPTIONS, CHARACTER_CLASSES, SHOP_ITEMS, RARITIES } from '../utils/shopData';
 import { getLevelInfo } from '../utils/gamification';
+import AvatarRenderer from './AvatarRenderer';
 
-function AvatarPreview({ avatar, size = 'lg' }) {
-  const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
-  const expr = AVATAR_OPTIONS.expressions.find(e => e.id === avatar.expression) || AVATAR_OPTIONS.expressions[0];
-  const companion = avatar.equippedCompanion ? SHOP_ITEMS.find(i => i.id === avatar.equippedCompanion) : null;
-  const aura = avatar.equippedAura ? SHOP_ITEMS.find(i => i.id === avatar.equippedAura) : null;
-  const head = avatar.equippedHead ? SHOP_ITEMS.find(i => i.id === avatar.equippedHead) : null;
-  const weapon = avatar.equippedWeapon ? SHOP_ITEMS.find(i => i.id === avatar.equippedWeapon) : null;
+const EQUIP_SLOTS_LEFT = [
+  { key: 'equippedHead', label: 'Hjälm / Mask', icon: '⛑️', filter: i => i.category === 'equipment' && i.slot === 'head' },
+  { key: 'equippedArmor', label: 'Överkropp', icon: '🛡️', filter: i => i.category === 'equipment' && i.slot === 'armor' },
+  { key: 'equippedWeapon', label: 'Vapen', icon: '⚔️', filter: i => i.category === 'equipment' && i.slot === 'weapon' },
+  { key: 'equippedBack', label: 'Mantel', icon: '🧥', filter: i => i.category === 'equipment' && i.slot === 'back' },
+];
 
-  const s = size === 'lg' ? 'w-28 h-28' : 'w-16 h-16';
-  const textS = size === 'lg' ? 'text-5xl' : 'text-2xl';
-
-  return (
-    <div className="relative inline-flex flex-col items-center">
-      {aura && <span className="absolute -top-2 -right-2 text-xl animate-pulse">{aura.icon}</span>}
-      <div className={`${s} rounded-full flex items-center justify-center relative overflow-hidden shadow-lg`} style={{ background: avatar.skinTone }}>
-        {/* Hair */}
-        <div className="absolute top-0 left-0 right-0 h-1/3 rounded-t-full" style={{ background: avatar.hairColor, opacity: avatar.hairStyle === 'bald' ? 0 : 0.85 }} />
-        {/* Face expression */}
-        <span className={`${textS} relative z-10`}>{expr.label}</span>
-        {head && <span className="absolute top-0 left-1/2 -translate-x-1/2 text-lg z-20">{head.icon}</span>}
-      </div>
-      {weapon && <span className="absolute -bottom-1 -right-1 text-lg">{weapon.icon}</span>}
-      {companion && <span className="absolute -bottom-1 -left-1 text-lg">{companion.icon}</span>}
-      <span className="text-xs mt-1">{cls.icon} {cls.name}</span>
-    </div>
-  );
-}
+const EQUIP_SLOTS_RIGHT = [
+  { key: 'equippedCompanion', label: 'Följeslagare', icon: '🐾', filter: i => i.category === 'companions' },
+  { key: 'equippedAura', label: 'Aura', icon: '✨', filter: i => i.category === 'auras' },
+  { key: 'equippedTitle', label: 'Titel', icon: '📛', filter: i => i.category === 'titles' },
+  { key: 'equippedBackground', label: 'Bakgrund', icon: '🏞️', filter: i => i.category === 'backgrounds' },
+];
 
 export default function AvatarModal({ open, onClose }) {
   const { state, dispatch, levelInfo } = useGamification();
-  const [tab, setTab] = useState('customize');
+  const [tab, setTab] = useState('equip');
+  const [activeSlot, setActiveSlot] = useState(null);
   const avatar = state.avatar || {};
   const owned = state.inventory || [];
 
   const updateAvatar = (changes) => dispatch('UPDATE_AVATAR', changes);
-
-  const ownedItems = (cat) => SHOP_ITEMS.filter(i => i.category === cat && owned.includes(i.id));
+  const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
   const equippedTitle = avatar.equippedTitle ? SHOP_ITEMS.find(i => i.id === avatar.equippedTitle) : null;
 
+  const ownedForSlot = (slot) => {
+    return SHOP_ITEMS.filter(i => owned.includes(i.id) && slot.filter(i));
+  };
+
   const tabs = [
+    { key: 'equip', label: 'Utrustning', icon: '⚔️' },
     { key: 'customize', label: 'Utseende', icon: '🎨' },
-    { key: 'class', label: 'Klass', icon: '⚔️' },
-    { key: 'equipment', label: 'Utrustning', icon: '🛡️' },
-    { key: 'profile', label: 'Profilkort', icon: '📋' },
+    { key: 'class', label: 'Klass', icon: '🏹' },
   ];
 
   return (
-    <Modal open={open} onClose={onClose} title="Avatar" wide>
-      <div className="flex gap-4 min-h-[420px]">
-        {/* Sidebar */}
-        <div className="w-44 shrink-0 border-r border-gray-100 pr-3">
-          {/* Avatar preview */}
-          <div className="flex flex-col items-center mb-4 py-3 bg-gray-50 rounded-xl">
-            <AvatarPreview avatar={avatar} />
-            {equippedTitle && <span className="text-[10px] font-bold text-indigo-600 mt-1">"{equippedTitle.name}"</span>}
+    <Modal open={open} onClose={onClose} title="Min Avatar" wide>
+      {/* Subtitle */}
+      <p className="text-xs text-gray-400 -mt-2 mb-3">Få ny utrustning genom att gå upp i Level, låsa upp Achievements eller besöka Butiken.</p>
+
+      {/* Tab nav */}
+      <div className="flex gap-1 mb-4 border-b border-gray-100 pb-2">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => { setTab(t.key); setActiveSlot(null); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              tab === t.key ? 'bg-indigo-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'equip' && (
+        <div className="flex items-start gap-3 min-h-[340px]">
+          {/* Left equipment slots */}
+          <div className="space-y-2 w-[130px] shrink-0">
+            {EQUIP_SLOTS_LEFT.map(slot => {
+              const equipped = avatar[slot.key];
+              const item = equipped ? SHOP_ITEMS.find(i => i.id === equipped) : null;
+              const isActive = activeSlot === slot.key;
+              return (
+                <button
+                  key={slot.key}
+                  onClick={() => setActiveSlot(isActive ? null : slot.key)}
+                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg border text-left transition-all ${
+                    isActive ? 'border-indigo-400 bg-indigo-50' :
+                    item ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                    {item ? item.icon : slot.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-medium text-gray-500 leading-tight">{slot.label}</p>
+                    {item ? (
+                      <p className="text-[10px] font-bold text-gray-800 truncate">{item.name}</p>
+                    ) : (
+                      <p className="text-[10px] text-gray-400 italic">Tom</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          <nav className="space-y-1">
-            {tabs.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
-                  tab === t.key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <span className="text-base">{t.icon}</span>
-                {t.label}
-              </button>
-            ))}
-          </nav>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0 overflow-y-auto max-h-[420px]">
-          {tab === 'customize' && (
-            <div className="space-y-4">
-              {/* Skin tone */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Hudfärg</label>
-                <div className="flex gap-2">{AVATAR_OPTIONS.skinTones.map(c => (
-                  <button key={c} onClick={() => updateAvatar({ skinTone: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.skinTone === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
-                ))}</div>
-              </div>
-              {/* Hair color */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Hårfärg</label>
-                <div className="flex gap-2">{AVATAR_OPTIONS.hairColors.map(c => (
-                  <button key={c} onClick={() => updateAvatar({ hairColor: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.hairColor === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
-                ))}</div>
-              </div>
-              {/* Hair style */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Frisyr</label>
-                <div className="flex flex-wrap gap-2">{AVATAR_OPTIONS.hairStyles.map(h => (
-                  <button key={h.id} onClick={() => updateAvatar({ hairStyle: h.id })} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${avatar.hairStyle === h.id ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{h.label}</button>
-                ))}</div>
-              </div>
-              {/* Eye color */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Ögonfärg</label>
-                <div className="flex gap-2">{AVATAR_OPTIONS.eyeColors.map(c => (
-                  <button key={c} onClick={() => updateAvatar({ eyeColor: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.eyeColor === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
-                ))}</div>
-              </div>
-              {/* Expression */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Uttryck</label>
-                <div className="flex gap-2">{AVATAR_OPTIONS.expressions.map(e => (
-                  <button key={e.id} onClick={() => updateAvatar({ expression: e.id })} className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-all ${avatar.expression === e.id ? 'bg-indigo-100 ring-2 ring-indigo-500' : 'bg-gray-50 hover:bg-gray-100'}`} title={e.name}>{e.label}</button>
-                ))}</div>
-              </div>
+          {/* Center: Avatar preview */}
+          <div className="flex-1 flex flex-col items-center">
+            <AvatarRenderer avatar={avatar} size={200} showBackground={true} />
+            <div className="mt-2 text-center">
+              {equippedTitle && <p className="text-xs font-bold text-indigo-600">"{equippedTitle.name}"</p>}
+              <p className="text-sm font-bold text-gray-700">Lv. {levelInfo?.level} {cls.name}</p>
             </div>
-          )}
+          </div>
 
-          {tab === 'class' && (
-            <div className="space-y-2">
-              <p className="text-xs text-gray-400 mb-3">Klasser är kosmetiska och ger inga gameplay-fördelar.</p>
-              {CHARACTER_CLASSES.map(cls => {
-                const level = levelInfo?.level || 1;
-                const locked = level < cls.unlockLevel;
+          {/* Right equipment slots */}
+          <div className="space-y-2 w-[130px] shrink-0">
+            {EQUIP_SLOTS_RIGHT.map(slot => {
+              const equipped = avatar[slot.key];
+              const item = equipped ? SHOP_ITEMS.find(i => i.id === equipped) : null;
+              const isActive = activeSlot === slot.key;
+              return (
+                <button
+                  key={slot.key}
+                  onClick={() => setActiveSlot(isActive ? null : slot.key)}
+                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg border text-left transition-all ${
+                    isActive ? 'border-indigo-400 bg-indigo-50' :
+                    item ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                    {item ? item.icon : slot.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-medium text-gray-500 leading-tight">{slot.label}</p>
+                    {item ? (
+                      <p className="text-[10px] font-bold text-gray-800 truncate">{item.name}</p>
+                    ) : (
+                      <p className="text-[10px] text-gray-400 italic">Tom</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Slot picker drawer */}
+      {tab === 'equip' && activeSlot && (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-600">
+              Välj {[...EQUIP_SLOTS_LEFT, ...EQUIP_SLOTS_RIGHT].find(s => s.key === activeSlot)?.label}
+            </p>
+            {avatar[activeSlot] && (
+              <button
+                onClick={() => { updateAvatar({ [activeSlot]: null }); setActiveSlot(null); }}
+                className="text-[10px] text-red-500 hover:text-red-700 font-medium"
+              >
+                Ta av
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(() => {
+              const slotDef = [...EQUIP_SLOTS_LEFT, ...EQUIP_SLOTS_RIGHT].find(s => s.key === activeSlot);
+              if (!slotDef) return null;
+              const available = SHOP_ITEMS.filter(i => owned.includes(i.id) && slotDef.filter(i));
+              if (available.length === 0) return <p className="text-xs text-gray-400">Inga ägda föremål — besök Butiken!</p>;
+              return available.map(item => {
+                const r = RARITIES[item.rarity] || RARITIES.common;
+                const isEquipped = avatar[activeSlot] === item.id;
                 return (
                   <button
-                    key={cls.id}
-                    onClick={() => !locked && updateAvatar({ class: cls.id })}
-                    disabled={locked}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-                      avatar.class === cls.id ? 'bg-indigo-50 border-indigo-300' :
-                      locked ? 'bg-gray-50 border-gray-100 opacity-50' :
-                      'bg-white border-gray-100 hover:border-indigo-200'
+                    key={item.id}
+                    onClick={() => { updateAvatar({ [activeSlot]: item.id }); setActiveSlot(null); }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                      isEquipped ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200'
                     }`}
                   >
-                    <span className="text-2xl">{cls.icon}</span>
-                    <div className="text-left flex-1">
-                      <p className="text-sm font-bold text-gray-800">{cls.name}</p>
-                      <p className="text-[10px] text-gray-500">{cls.desc}</p>
+                    <span className="text-lg">{item.icon}</span>
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">{item.name}</p>
+                      <span className="text-[9px] font-bold" style={{ color: r.color }}>{r.label}</span>
                     </div>
-                    {locked && <span className="text-[10px] text-gray-400">🔒 Level {cls.unlockLevel}</span>}
-                    {avatar.class === cls.id && <span className="text-green-500">✓</span>}
+                    {isEquipped && <span className="text-green-500 text-xs ml-1">✓</span>}
                   </button>
                 );
-              })}
-            </div>
-          )}
-
-          {tab === 'equipment' && (
-            <div className="space-y-4">
-              {/* Titles */}
-              <EquipSection label="Titel" items={ownedItems('titles')} equipped={avatar.equippedTitle} onEquip={id => updateAvatar({ equippedTitle: id })} onUnequip={() => updateAvatar({ equippedTitle: null })} />
-              {/* Companions */}
-              <EquipSection label="Följeslagare" items={ownedItems('companions')} equipped={avatar.equippedCompanion} onEquip={id => updateAvatar({ equippedCompanion: id })} onUnequip={() => updateAvatar({ equippedCompanion: null })} />
-              {/* Head */}
-              <EquipSection label="Huvudbonad" items={ownedItems('equipment').filter(i => i.slot === 'head')} equipped={avatar.equippedHead} onEquip={id => updateAvatar({ equippedHead: id })} onUnequip={() => updateAvatar({ equippedHead: null })} />
-              {/* Weapon */}
-              <EquipSection label="Vapen" items={ownedItems('equipment').filter(i => i.slot === 'weapon')} equipped={avatar.equippedWeapon} onEquip={id => updateAvatar({ equippedWeapon: id })} onUnequip={() => updateAvatar({ equippedWeapon: null })} />
-              {/* Back */}
-              <EquipSection label="Mantel / Rygg" items={ownedItems('equipment').filter(i => i.slot === 'back')} equipped={avatar.equippedBack} onEquip={id => updateAvatar({ equippedBack: id })} onUnequip={() => updateAvatar({ equippedBack: null })} />
-              {/* Auras */}
-              <EquipSection label="Aura" items={ownedItems('auras')} equipped={avatar.equippedAura} onEquip={id => updateAvatar({ equippedAura: id })} onUnequip={() => updateAvatar({ equippedAura: null })} />
-              {/* Backgrounds */}
-              <EquipSection label="Bakgrund" items={ownedItems('backgrounds')} equipped={avatar.equippedBackground} onEquip={id => updateAvatar({ equippedBackground: id })} onUnequip={() => updateAvatar({ equippedBackground: null })} />
-            </div>
-          )}
-
-          {tab === 'profile' && (
-            <div className="flex flex-col items-center py-4">
-              {/* Profile card */}
-              <div className="w-full max-w-xs bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
-                <div className="flex items-center gap-4 mb-4">
-                  <AvatarPreview avatar={avatar} size="sm" />
-                  <div>
-                    <p className="text-lg font-black">Marcus</p>
-                    {equippedTitle && <p className="text-xs text-indigo-200">"{equippedTitle.name}"</p>}
-                    <p className="text-xs text-indigo-200 mt-0.5">Level {levelInfo?.level} {levelInfo?.title}</p>
-                  </div>
-                </div>
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-indigo-200">Klass</span>
-                    <span className="font-medium">{CHARACTER_CLASSES.find(c => c.id === avatar.class)?.name || 'Warrior'}</span>
-                  </div>
-                  {avatar.equippedCompanion && (
-                    <div className="flex justify-between">
-                      <span className="text-indigo-200">Följeslagare</span>
-                      <span className="font-medium">{SHOP_ITEMS.find(i => i.id === avatar.equippedCompanion)?.name}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-indigo-200">XP</span>
-                    <span className="font-medium">{state.totalXP.toLocaleString()} / {levelInfo?.isMaxLevel ? 'MAX' : (levelInfo?.xpInLevel + levelInfo?.xpForNextLevel || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="h-2 bg-white/20 rounded-full overflow-hidden mt-1">
-                    <div className="h-full bg-white rounded-full" style={{ width: `${(levelInfo?.progress || 0) * 100}%` }} />
-                  </div>
-                  <div className="flex justify-between pt-1">
-                    <span className="text-indigo-200">🪙 Coins</span>
-                    <span className="font-medium">{state.coins}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-indigo-200">🔥 Streak</span>
-                    <span className="font-medium">{state.currentStreak} dagar</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-indigo-200">🏆 Achievements</span>
-                    <span className="font-medium">{state.unlockedAchievements.length}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+              });
+            })()}
+          </div>
         </div>
-      </div>
-    </Modal>
-  );
-}
+      )}
 
-function EquipSection({ label, items, equipped, onEquip, onUnequip }) {
-  return (
-    <div>
-      <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
-      {items.length === 0 ? (
-        <p className="text-[10px] text-gray-400">Inga ägda — köp i butiken!</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map(item => {
-            const r = RARITIES[item.rarity] || RARITIES.common;
-            const isEquipped = equipped === item.id;
+      {tab === 'customize' && (
+        <div className="flex gap-4 min-h-[340px]">
+          {/* Small avatar preview */}
+          <div className="flex flex-col items-center shrink-0">
+            <AvatarRenderer avatar={avatar} size={140} showBackground={false} />
+          </div>
+          {/* Customization options */}
+          <div className="flex-1 space-y-3 overflow-y-auto max-h-[360px]">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Hudfärg</label>
+              <div className="flex gap-2">{AVATAR_OPTIONS.skinTones.map(c => (
+                <button key={c} onClick={() => updateAvatar({ skinTone: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.skinTone === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
+              ))}</div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Hårfärg</label>
+              <div className="flex gap-2">{AVATAR_OPTIONS.hairColors.map(c => (
+                <button key={c} onClick={() => updateAvatar({ hairColor: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.hairColor === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
+              ))}</div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Frisyr</label>
+              <div className="flex flex-wrap gap-2">{AVATAR_OPTIONS.hairStyles.map(h => (
+                <button key={h.id} onClick={() => updateAvatar({ hairStyle: h.id })} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${avatar.hairStyle === h.id ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{h.label}</button>
+              ))}</div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Ögonfärg</label>
+              <div className="flex gap-2">{AVATAR_OPTIONS.eyeColors.map(c => (
+                <button key={c} onClick={() => updateAvatar({ eyeColor: c })} className={`w-8 h-8 rounded-full border-2 transition-all ${avatar.eyeColor === c ? 'border-indigo-500 scale-110' : 'border-transparent hover:scale-105'}`} style={{ background: c }} />
+              ))}</div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Uttryck</label>
+              <div className="flex flex-wrap gap-2">{AVATAR_OPTIONS.expressions.map(e => (
+                <button key={e.id} onClick={() => updateAvatar({ expression: e.id })} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${avatar.expression === e.id ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{e.name}</button>
+              ))}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'class' && (
+        <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto">
+          {CHARACTER_CLASSES.map(c => {
+            const level = levelInfo?.level || 1;
+            const locked = level < c.unlockLevel;
             return (
               <button
-                key={item.id}
-                onClick={() => isEquipped ? onUnequip() : onEquip(item.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  isEquipped ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-200'
+                key={c.id}
+                onClick={() => !locked && updateAvatar({ class: c.id })}
+                disabled={locked}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left ${
+                  avatar.class === c.id ? 'bg-indigo-50 border-indigo-300' :
+                  locked ? 'bg-gray-50 border-gray-100 opacity-50' :
+                  'bg-white border-gray-100 hover:border-indigo-200'
                 }`}
-                title={item.desc}
               >
-                <span>{item.icon}</span>
-                <span>{item.name}</span>
-                {isEquipped && <span className="text-green-500 text-[10px]">✓</span>}
+                <span className="text-2xl">{c.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800">{c.name}</p>
+                  <p className="text-[10px] text-gray-500">{c.desc}</p>
+                </div>
+                {locked && <span className="text-[10px] text-gray-400 shrink-0">🔒 Lv.{c.unlockLevel}</span>}
+                {avatar.class === c.id && <span className="text-green-500 shrink-0">✓</span>}
               </button>
             );
           })}
+          <p className="col-span-2 text-[10px] text-gray-400 text-center mt-1">Klasser är kosmetiska och ger inga gameplay-fördelar.</p>
         </div>
       )}
-    </div>
+    </Modal>
   );
 }
