@@ -23,7 +23,7 @@ const TABS = [
   { key: 'appearance', label: 'Utseende', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
 ];
 
-export default function SettingsModal({ open, onClose, columns, onSave, backgroundImage, onSaveBackground, boardIcon, onSaveBoardIcon, deadlineEnabled, onSaveDeadlineEnabled, labels, customColors, onSaveLabels, onSaveCustomColors }) {
+export default function SettingsModal({ open, onClose, columns, onSave, backgroundImage, onSaveBackground, boardIcon, onSaveBoardIcon, deadlineEnabled, onSaveDeadlineEnabled, labels, customColors, onSaveLabels, onSaveCustomColors, gamificationEnabled, onToggleGamification }) {
   const [tab, setTab] = useState('general');
   const [items, setItems] = useState([]);
   const [newName, setNewName] = useState('');
@@ -253,6 +253,25 @@ export default function SettingsModal({ open, onClose, columns, onSave, backgrou
                   className={`relative w-10 h-5 rounded-full transition-colors ${deadlineOn ? 'bg-indigo-500' : 'bg-gray-300'}`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deadlineOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {/* Gamification toggle */}
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <span className="text-base">⚔️</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Gamification</p>
+                    <p className="text-xs text-gray-400">XP, levels, achievements & quests</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onToggleGamification(!gamificationEnabled)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${gamificationEnabled ? 'bg-indigo-500' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${gamificationEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
 

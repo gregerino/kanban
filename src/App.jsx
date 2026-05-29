@@ -19,6 +19,11 @@ import TaskContextMenu from './components/TaskContextMenu';
 import ThemeProvider from './components/ThemeContext';
 import FilterBar from './components/FilterBar';
 import DragProvider, { useDrag } from './components/DragContext';
+import GamificationProvider, { useGamification } from './components/GamificationContext';
+import GamificationBar from './components/GamificationBar';
+import GamificationModal from './components/GamificationModal';
+import DungeonTimer from './components/DungeonTimer';
+import XPNotification from './components/XPNotification';
 
 function DropZone({ storyId, col, children }) {
   const ref = useRef(null);
@@ -46,7 +51,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-function AppInner() {
+function AppInner({ gamificationEnabled, onToggleGamification }) {
   const { user, signOut, isConfigured } = useAuth();
   const { boards, setBoards, activeId, setActiveId, syncing, syncError } = useCloudSync(user);
   const [filters, setFilters] = useState({ status: '', priority: '', labels: [] });
@@ -69,6 +74,9 @@ function AppInner() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, task }
   const [expandedDone, setExpandedDone] = useState({}); // { [storyId]: bool }
+  const [gamificationModal, setGamificationModal] = useState(false);
+  const [dungeonTimerOpen, setDungeonTimerOpen] = useState(false);
+  const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
@@ -258,10 +266,23 @@ function AppInner() {
         }));
       } else if (drag.type === 'task') {
         const taskId = drag.id;
+        const lastCol = data.columns[data.columns.length - 1];
+        const task = data.tasks.find(t => t.id === taskId);
         updateBoard(d => ({
           ...d,
           tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
         }));
+        // Gamification: XP for moving, extra for completing
+        if (task && status !== task.status) {
+          gamDispatch('TASK_MOVED');
+          if (status === lastCol && task.status !== lastCol) {
+            gamDispatch('TASK_COMPLETED', task);
+            // Check if all story tasks are now done
+            const storyTasks = data.tasks.filter(t => t.storyId === storyId);
+            const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
+            if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+          }
+        }
       }
     };
     window.addEventListener('board-drop', onBoardDrop);
@@ -464,8 +485,17 @@ function AppInner() {
 
           <NotificationCenter tasks={data.tasks} onOpenTask={setDetailTask} />
 
+          {/* Gamification bar */}
+          <GamificationBar onClick={() => setGamificationModal(true)} />
+
           {/* Desktop header buttons */}
           <div className="hidden md:flex items-center gap-2">
+            {gamEnabled && (
+              <button onClick={() => setDungeonTimerOpen(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Dungeon Run">
+                <span className="text-sm">🏰</span>
+                Focus
+              </button>
+            )}
             <button onClick={() => setAnalyticsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Analys">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
               Analys
@@ -492,6 +522,18 @@ function AppInner() {
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMobileMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[180px] py-1">
+                  {gamEnabled && (
+                    <button onClick={() => { setDungeonTimerOpen(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <span className="text-base">🏰</span>
+                      Dungeon Run
+                    </button>
+                  )}
+                  {gamEnabled && (
+                    <button onClick={() => { setGamificationModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <span className="text-base">⚔️</span>
+                      Gamification
+                    </button>
+                  )}
                   <button onClick={() => { setAnalyticsModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     Analys
@@ -916,6 +958,8 @@ function AppInner() {
         customColors={data.customColors || []}
         onSaveLabels={(labels) => updateBoard(d => ({ ...d, labels }))}
         onSaveCustomColors={(customColors) => updateBoard(d => ({ ...d, customColors }))}
+        gamificationEnabled={gamificationEnabled}
+        onToggleGamification={onToggleGamification}
       />
       <AnalyticsModal
         open={analyticsModal}
@@ -924,6 +968,9 @@ function AppInner() {
         labels={data.labels}
         columns={data.columns}
       />
+      <GamificationModal open={gamificationModal} onClose={() => setGamificationModal(false)} />
+      <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} />
+      <XPNotification />
       <UpdateChecker />
       {/* Copy board modal */}
       {copyBoardModal && (
@@ -975,10 +1022,21 @@ function AppInner() {
             }));
           }}
           onMoveToColumn={(taskId, col) => {
+            const lastCol = data.columns[data.columns.length - 1];
+            const task = data.tasks.find(t => t.id === taskId);
             updateBoard(d => ({
               ...d,
               tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col } : t),
             }));
+            if (task && col !== task.status) {
+              gamDispatch('TASK_MOVED');
+              if (col === lastCol && task.status !== lastCol) {
+                gamDispatch('TASK_COMPLETED', task);
+                const storyTasks = data.tasks.filter(t => t.storyId === task.storyId);
+                const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
+                if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
+              }
+            }
           }}
           onClose={() => setContextMenu(null)}
         />
@@ -1015,10 +1073,16 @@ function AppShell() {
     return <LoginScreen onSkip={() => { setSkippedLogin(true); localStorage.setItem('scrum_skipped_login', 'true'); }} />;
   }
 
+  // Gamification enabled state (global, stored in localStorage)
+  const [gamificationEnabled, setGamificationEnabled] = useState(() => localStorage.getItem('questlog_gamification_enabled') === 'true');
+  const toggleGamification = (v) => { setGamificationEnabled(v); localStorage.setItem('questlog_gamification_enabled', v ? 'true' : 'false'); };
+
   return (
-    <DragProvider>
-      <AppInner />
-    </DragProvider>
+    <GamificationProvider enabled={gamificationEnabled}>
+      <DragProvider>
+        <AppInner gamificationEnabled={gamificationEnabled} onToggleGamification={toggleGamification} />
+      </DragProvider>
+    </GamificationProvider>
   );
 }
 
