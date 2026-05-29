@@ -29,6 +29,12 @@ export default function GamificationBar({ onClick }) {
         </div>
       </div>
 
+      {/* Coins */}
+      <div className="hidden md:flex items-center gap-0.5 text-amber-600" title={`${state.coins} coins`}>
+        <span className="text-sm">🪙</span>
+        <span className="text-[10px] font-bold">{state.coins}</span>
+      </div>
+
       {/* Streak */}
       {state.currentStreak > 0 && (
         <div className="flex items-center gap-0.5 text-orange-500" title={`${state.currentStreak} dagars streak`}>

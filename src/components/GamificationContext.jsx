@@ -2,8 +2,10 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import {
   loadGamificationState, saveGamificationState, getLevelInfo,
   onTaskCompleted, onTaskMoved, onStoryCompleted, onDungeonCleared, onComment, onBoardCleared,
+  onPurchaseItem, onPurchasePerk, onOpenChest, onAvatarUpdate, onQuestReroll, cleanExpiredPerks,
   consumeNotifications, getDailyQuests, ACHIEVEMENTS,
 } from '../utils/gamification';
+import { SHOP_ITEMS, openChest as rollChest } from '../utils/shopData';
 
 const GamificationCtx = createContext(null);
 export function useGamification() { return useContext(GamificationCtx); }
@@ -20,6 +22,13 @@ export default function GamificationProvider({ children, enabled }) {
     saveTimer.current = setTimeout(() => saveGamificationState(state), 300);
     return () => clearTimeout(saveTimer.current);
   }, [state, enabled]);
+
+  // Clean expired perks periodically
+  useEffect(() => {
+    if (!enabled) return;
+    const interval = setInterval(() => setState(s => cleanExpiredPerks(s)), 60000);
+    return () => clearInterval(interval);
+  }, [enabled]);
 
   // Process pending notifications
   useEffect(() => {
@@ -49,6 +58,18 @@ export default function GamificationProvider({ children, enabled }) {
         case 'DUNGEON_CLEARED': return onDungeonCleared(prev);
         case 'COMMENT': return onComment(prev);
         case 'BOARD_CLEARED': return onBoardCleared(prev);
+        case 'PURCHASE_ITEM': return onPurchaseItem(prev, payload.itemId, payload.cost);
+        case 'PURCHASE_PERK': return onPurchasePerk(prev, payload.perk, payload.cost);
+        case 'OPEN_CHEST': {
+          const reward = rollChest(payload.chestId, prev.inventory || []);
+          if (!reward) return prev;
+          const next = onOpenChest(prev, payload.cost, reward);
+          // Store last chest reward for UI
+          next._lastChestReward = reward;
+          return next;
+        }
+        case 'UPDATE_AVATAR': return onAvatarUpdate(prev, payload);
+        case 'QUEST_REROLL': return onQuestReroll(prev);
         default: return prev;
       }
     });
