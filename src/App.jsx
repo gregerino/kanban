@@ -972,9 +972,9 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         onOpenAvatar={() => { setGamificationModal(false); setAvatarModal(true); }}
         onOpenDungeon={() => { setGamificationModal(false); setDungeonTimerOpen(true); }}
       />
-      <ShopModal open={shopModal} onClose={() => setShopModal(false)} />
-      <AvatarModal open={avatarModal} onClose={() => setAvatarModal(false)} />
-      <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} />
+      <ShopModal open={shopModal} onClose={() => setShopModal(false)} onBack={() => { setShopModal(false); setGamificationModal(true); }} />
+      <AvatarModal open={avatarModal} onClose={() => setAvatarModal(false)} onBack={() => { setAvatarModal(false); setGamificationModal(true); }} />
+      <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} onBack={() => { setDungeonTimerOpen(false); setGamificationModal(true); }} />
       <XPNotification />
       <UpdateChecker />
       {/* Copy board modal */}

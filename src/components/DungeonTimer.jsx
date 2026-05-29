@@ -4,7 +4,7 @@ import { useGamification } from './GamificationContext';
 
 const DUNGEON_DURATION = 25 * 60; // 25 minutes in seconds
 
-export default function DungeonTimer({ open, onClose }) {
+export default function DungeonTimer({ open, onClose, onBack }) {
   const { dispatch, enabled } = useGamification();
   const [seconds, setSeconds] = useState(DUNGEON_DURATION);
   const [running, setRunning] = useState(false);
@@ -52,7 +52,7 @@ export default function DungeonTimer({ open, onClose }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Dungeon Run">
+    <Modal open={open} onClose={onClose} onBack={onBack} title="Dungeon Run">
       <div className="flex flex-col items-center py-4">
         {/* Timer ring */}
         <div className="relative w-48 h-48 mb-6">

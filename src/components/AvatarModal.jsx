@@ -19,7 +19,7 @@ const EQUIP_SLOTS_RIGHT = [
   { key: 'equippedBackground', label: 'Bakgrund', icon: '🏞️', filter: i => i.category === 'backgrounds' },
 ];
 
-export default function AvatarModal({ open, onClose }) {
+export default function AvatarModal({ open, onClose, onBack }) {
   const { state, dispatch, levelInfo } = useGamification();
   const [tab, setTab] = useState('equip');
   const [activeSlot, setActiveSlot] = useState(null);
@@ -41,7 +41,7 @@ export default function AvatarModal({ open, onClose }) {
   ];
 
   return (
-    <Modal open={open} onClose={onClose} title="Min Avatar" wide>
+    <Modal open={open} onClose={onClose} onBack={onBack} title="Min Avatar" wide>
       {/* Subtitle */}
       <p className="text-xs text-gray-400 -mt-2 mb-3">Få ny utrustning genom att gå upp i Level, låsa upp Achievements eller besöka Butiken.</p>
 
