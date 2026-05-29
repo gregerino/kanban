@@ -23,7 +23,7 @@ export default function XPNotification() {
           {n.type === 'achievement' ? n.icon :
            n.type === 'streak' ? '🔥' :
            n.type === 'quest' ? '📜' :
-           n.type === 'coins' ? '🪙' :
+           n.type === 'coins' ? '💰' :
            n.type === 'shop' ? (n.icon || '🛒') :
            '⚡'}
         </div>

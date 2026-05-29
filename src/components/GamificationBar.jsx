@@ -1,4 +1,5 @@
 import { useGamification } from './GamificationContext';
+import AvatarRenderer from './AvatarRenderer';
 
 export default function GamificationBar({ onClick }) {
   const { enabled, levelInfo, state } = useGamification();
@@ -7,19 +8,18 @@ export default function GamificationBar({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-2.5 py-1 rounded-lg hover:bg-white/20 transition-colors group"
+      className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors group"
       title="Gamification"
     >
-      {/* Level badge */}
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
-        <span className="text-[10px] font-black text-white">{levelInfo.level}</span>
+      {/* Mini avatar */}
+      <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-gray-200 shrink-0">
+        <AvatarRenderer avatar={state.avatar} size={32} showBackground={false} />
       </div>
 
-      {/* XP bar */}
-      <div className="hidden md:flex flex-col min-w-[100px]">
+      {/* Level + XP bar */}
+      <div className="hidden md:flex flex-col min-w-[90px]">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="text-[10px] font-semibold text-gray-600">{levelInfo.title}</span>
-          <span className="text-[9px] text-gray-400">{state.totalXP} XP</span>
+          <span className="text-[10px] font-bold text-gray-700">Lv.{levelInfo.level} {levelInfo.title}</span>
         </div>
         <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <div
@@ -27,21 +27,23 @@ export default function GamificationBar({ onClick }) {
             style={{ width: `${levelInfo.progress * 100}%` }}
           />
         </div>
-      </div>
-
-      {/* Coins */}
-      <div className="hidden md:flex items-center gap-0.5 text-amber-600" title={`${state.coins} coins`}>
-        <span className="text-sm">🪙</span>
-        <span className="text-[10px] font-bold">{state.coins}</span>
-      </div>
-
-      {/* Streak */}
-      {state.currentStreak > 0 && (
-        <div className="flex items-center gap-0.5 text-orange-500" title={`${state.currentStreak} dagars streak`}>
-          <span className="text-sm">🔥</span>
-          <span className="text-[10px] font-bold">{state.currentStreak}</span>
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="text-[9px] text-gray-400">{state.totalXP} XP</span>
+          <div className="flex items-center gap-1.5">
+            {/* Gold coin */}
+            <span className="flex items-center gap-0.5 text-amber-600">
+              <svg className="w-3 h-3" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#f59e0b" stroke="#d97706" strokeWidth="1"/><circle cx="8" cy="8" r="5" fill="#fbbf24"/><text x="8" y="11" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#92400e">$</text></svg>
+              <span className="text-[9px] font-bold">{state.coins}</span>
+            </span>
+            {state.currentStreak > 0 && (
+              <span className="flex items-center gap-0.5 text-orange-500">
+                <span className="text-[10px]">🔥</span>
+                <span className="text-[9px] font-bold">{state.currentStreak}</span>
+              </span>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </button>
   );
 }

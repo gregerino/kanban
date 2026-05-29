@@ -24,15 +24,35 @@ export const RARITIES = {
 
 // ─── CHARACTER CLASSES ──────────────────────────────────────────
 export const CHARACTER_CLASSES = [
-  { id: 'warrior',   name: 'Warrior',   icon: '⚔️', desc: 'Modig frontlinjekämpe', unlockLevel: 1 },
-  { id: 'ranger',    name: 'Ranger',    icon: '🏹', desc: 'Skicklig spårare och skytt', unlockLevel: 1 },
-  { id: 'wizard',    name: 'Wizard',    icon: '🧙', desc: 'Mästare av arkan magi', unlockLevel: 3 },
-  { id: 'rogue',     name: 'Rogue',     icon: '🗡️', desc: 'Smidig och snabb skuggvarelse', unlockLevel: 5 },
-  { id: 'paladin',   name: 'Paladin',   icon: '🛡️', desc: 'Helig riddare av ljuset', unlockLevel: 7 },
-  { id: 'bard',      name: 'Bard',      icon: '🎵', desc: 'Inspirerande musiker och poet', unlockLevel: 10 },
-  { id: 'druid',     name: 'Druid',     icon: '🌿', desc: 'Naturens väktare', unlockLevel: 13 },
-  { id: 'artificer', name: 'Artificer', icon: '⚙️', desc: 'Uppfinnare och mekaniker', unlockLevel: 16 },
+  { id: 'warrior',   name: 'Warrior',   icon: '⚔️', desc: 'Modig frontlinjekämpe', unlockLevel: 1,  startGear: { armor: 'starter_chain',   weapon: 'starter_sword',  back: null } },
+  { id: 'ranger',    name: 'Ranger',    icon: '🏹', desc: 'Skicklig spårare och skytt', unlockLevel: 1,  startGear: { armor: 'starter_leather', weapon: 'starter_bow',    back: 'starter_cloak' } },
+  { id: 'wizard',    name: 'Wizard',    icon: '🧙', desc: 'Mästare av arkan magi', unlockLevel: 3,  startGear: { armor: 'starter_robe',    weapon: 'starter_staff',  head: 'starter_wizard_hat' } },
+  { id: 'rogue',     name: 'Rogue',     icon: '🗡️', desc: 'Smidig och snabb skuggvarelse', unlockLevel: 5,  startGear: { armor: 'starter_leather', weapon: 'starter_dagger', back: 'starter_hood' } },
+  { id: 'paladin',   name: 'Paladin',   icon: '🛡️', desc: 'Helig riddare av ljuset', unlockLevel: 7,  startGear: { armor: 'starter_plate',   weapon: 'starter_sword',  head: 'starter_helm' } },
+  { id: 'bard',      name: 'Bard',      icon: '🎵', desc: 'Inspirerande musiker och poet', unlockLevel: 10, startGear: { armor: 'starter_tunic',   weapon: 'starter_lute',   back: 'starter_cloak' } },
+  { id: 'druid',     name: 'Druid',     icon: '🌿', desc: 'Naturens väktare', unlockLevel: 13, startGear: { armor: 'starter_robe',    weapon: 'starter_staff',  back: null } },
+  { id: 'artificer', name: 'Artificer', icon: '⚙️', desc: 'Uppfinnare och mekaniker', unlockLevel: 16, startGear: { armor: 'starter_leather', weapon: 'starter_wrench', head: 'starter_goggles' } },
 ];
+
+// Starting gear definitions (free, not in shop — auto-applied when choosing class)
+export const STARTER_GEAR = {
+  starter_sword:      { name: 'Rostig klinga',     slot: 'weapon', icon: '🗡️' },
+  starter_bow:        { name: 'Enkel båge',        slot: 'weapon', icon: '🏹' },
+  starter_staff:      { name: 'Trästav',           slot: 'weapon', icon: '🪄' },
+  starter_dagger:     { name: 'Dolkpar',           slot: 'weapon', icon: '🔪' },
+  starter_lute:       { name: 'Gammal luta',       slot: 'weapon', icon: '🎸' },
+  starter_wrench:     { name: 'Skiftnyckel',       slot: 'weapon', icon: '🔧' },
+  starter_chain:      { name: 'Ringbrynja',        slot: 'armor',  icon: '⛓️' },
+  starter_leather:    { name: 'Läderkorsett',      slot: 'armor',  icon: '🦺' },
+  starter_robe:       { name: 'Enkel klädnad',     slot: 'armor',  icon: '👘' },
+  starter_plate:      { name: 'Plåtrustning',      slot: 'armor',  icon: '🛡️' },
+  starter_tunic:      { name: 'Bardens tunika',    slot: 'armor',  icon: '👕' },
+  starter_cloak:      { name: 'Resemantel',        slot: 'back',   icon: '🧥' },
+  starter_hood:       { name: 'Skugghuva',         slot: 'back',   icon: '🥷' },
+  starter_wizard_hat: { name: 'Lärlingsshatt',     slot: 'head',   icon: '🎩' },
+  starter_helm:       { name: 'Järnhjälm',         slot: 'head',   icon: '⛑️' },
+  starter_goggles:    { name: 'Mekanikglasögon',   slot: 'head',   icon: '🥽' },
+};
 
 // ─── AVATAR OPTIONS ─────────────────────────────────────────────
 export const AVATAR_OPTIONS = {

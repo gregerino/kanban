@@ -3,7 +3,7 @@
  * Builds a RPG character from body parts that can be swapped via equipment/customization.
  */
 
-import { SHOP_ITEMS } from '../utils/shopData';
+import { SHOP_ITEMS, STARTER_GEAR, CHARACTER_CLASSES } from '../utils/shopData';
 
 // Color helpers
 const darken = (hex, amt = 30) => {
@@ -22,14 +22,37 @@ const lighten = (hex, amt = 30) => {
   return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
 };
 
-// Hair path data by style
-const HAIR_PATHS = {
-  short: 'M30,38 C30,26 38,20 50,20 C62,20 70,26 70,38 L68,34 C68,25 61,21 50,21 C39,21 32,25 32,34 Z',
-  medium: 'M28,38 C28,24 36,18 50,18 C64,18 72,24 72,38 L72,50 C73,50 74,42 72,38 C72,25 63,19 50,19 C37,19 28,25 28,38 C26,42 27,50 28,50 Z',
-  long: 'M28,38 C28,24 36,18 50,18 C64,18 72,24 72,38 L73,55 L74,70 C74,72 72,72 72,70 L71,55 L70,42 C70,26 62,20 50,20 C38,20 30,26 30,42 L29,55 L28,70 C28,72 26,72 26,70 L27,55 Z',
-  ponytail: 'M30,38 C30,26 38,20 50,20 C62,20 70,26 70,38 L68,34 C68,25 61,21 50,21 C39,21 32,25 32,34 Z M62,30 C64,32 72,40 72,55 C72,60 70,62 68,58 C66,50 64,40 62,35 Z',
-  mohawk: 'M45,38 L45,12 C45,8 47,6 50,6 C53,6 55,8 55,12 L55,38 Z',
-  bald: '',
+// Hair SVG generators by style (returns full SVG string, not just path)
+const HAIR_SVG = {
+  short: (color) => `
+    <path d="M34,40 C34,27 40,21 50,21 C60,21 66,27 66,40 L65,36 C64,28 59,23 50,23 C41,23 36,28 35,36 Z" fill="${color}"/>
+    <path d="M34,38 Q34,32 37,28 L36,34 Z" fill="${color}" opacity="0.7"/>
+    <path d="M66,38 Q66,32 63,28 L64,34 Z" fill="${color}" opacity="0.7"/>
+  `,
+  medium: (color) => `
+    <path d="M32,42 C32,25 38,19 50,19 C62,19 68,25 68,42" fill="${color}"/>
+    <path d="M32,42 C31,48 31,52 32,50 L32,42" fill="${color}"/>
+    <path d="M68,42 C69,48 69,52 68,50 L68,42" fill="${color}"/>
+    <path d="M36,22 C40,19 45,18 50,18 C55,18 60,19 64,22" fill="${color}" opacity="0.8"/>
+  `,
+  long: (color) => `
+    <path d="M30,42 C30,24 37,17 50,17 C63,17 70,24 70,42" fill="${color}"/>
+    <path d="M30,42 L29,58 C28,65 29,70 31,68 L32,55 L32,42" fill="${color}"/>
+    <path d="M70,42 L71,58 C72,65 71,70 69,68 L68,55 L68,42" fill="${color}"/>
+    <path d="M36,20 C41,16 46,15 50,15 C54,15 59,16 64,20" fill="${lighten(color, 15)}" opacity="0.5"/>
+  `,
+  ponytail: (color) => `
+    <path d="M34,40 C34,27 40,21 50,21 C60,21 66,27 66,40 L65,36 C64,28 59,23 50,23 C41,23 36,28 35,36 Z" fill="${color}"/>
+    <path d="M58,26 C60,28 64,32 66,40 L67,50 C67,55 68,62 66,65 C64,68 62,65 63,60 L64,50 L63,38 C62,32 60,28 58,26" fill="${color}"/>
+    <ellipse cx="65" cy="65" rx="3" ry="2" fill="${color}"/>
+  `,
+  mohawk: (color) => `
+    <path d="M46,36 L44,16 C44,10 46,6 50,6 C54,6 56,10 56,16 L54,36" fill="${color}"/>
+    <path d="M45,20 L50,5 L55,20" fill="${lighten(color, 20)}" opacity="0.3"/>
+    <path d="M36,40 C36,34 38,30 42,28" fill="${color}" opacity="0.5"/>
+    <path d="M64,40 C64,34 62,30 58,28" fill="${color}" opacity="0.5"/>
+  `,
+  bald: () => '',
 };
 
 // Eye shapes
@@ -50,22 +73,38 @@ const MOUTHS = {
   fierce: (x, y) => `<path d="M${x-3},${y+1} L${x},${y-1} L${x+3},${y+1}" fill="none" stroke="#8b5e3c" stroke-width="1.5" stroke-linecap="round"/>`,
 };
 
-// Equipment overlay icons (positioned on the character)
+// Equipment overlay SVG (positioned on the character)
 const EQUIPMENT_OVERLAYS = {
   // Head items
   eq_wizard_hat: '<polygon points="50,8 40,32 60,32" fill="#4a3b8f" stroke="#6b5cbf" stroke-width="0.5"/><ellipse cx="50" cy="32" rx="14" ry="3" fill="#4a3b8f"/><circle cx="50" cy="12" r="2" fill="#ffd700"/>',
   eq_golden_crown: '<path d="M38,28 L40,20 L44,26 L48,18 L52,26 L56,18 L60,26 L62,28 Z" fill="#ffd700" stroke="#daa520" stroke-width="0.5"/><circle cx="50" cy="22" r="1.5" fill="#ef4444"/>',
   eq_mythic_helm: '<path d="M35,38 L35,26 C35,18 42,14 50,14 C58,14 65,18 65,26 L65,38" fill="#6b7280" stroke="#9ca3af" stroke-width="0.8"/><rect x="43" y="30" width="14" height="6" rx="1" fill="#374151"/><line x1="50" y1="14" x2="50" y2="8" stroke="#9ca3af" stroke-width="2"/>',
+  starter_wizard_hat: '<polygon points="50,12 42,30 58,30" fill="#3b3080" stroke="#5b4fbf" stroke-width="0.5"/><ellipse cx="50" cy="30" rx="12" ry="2.5" fill="#3b3080"/>',
+  starter_helm: '<path d="M37,38 L37,28 C37,22 42,18 50,18 C58,18 63,22 63,28 L63,38" fill="#78716c" stroke="#a8a29e" stroke-width="0.6"/><rect x="44" y="32" width="12" height="5" rx="1" fill="#57534e"/>',
+  starter_goggles: '<ellipse cx="42" cy="40" rx="6" ry="4" fill="none" stroke="#78716c" stroke-width="1.5"/><ellipse cx="58" cy="40" rx="6" ry="4" fill="none" stroke="#78716c" stroke-width="1.5"/><line x1="48" y1="40" x2="52" y2="40" stroke="#78716c" stroke-width="1"/><rect x="42" y="38" width="16" height="4" rx="2" fill="#a8a29e" opacity="0.3"/>',
   // Weapons
   eq_wooden_sword: '<rect x="18" y="45" width="3" height="22" rx="1" fill="#92400e" transform="rotate(-15,19,56)"/><rect x="15" y="44" width="9" height="3" rx="1" fill="#78350f" transform="rotate(-15,19,45)"/>',
   eq_fire_sword: '<rect x="18" y="40" width="3" height="28" rx="1" fill="#dc2626" transform="rotate(-15,19,54)"/><rect x="15" y="39" width="9" height="3" rx="1" fill="#991b1b" transform="rotate(-15,19,40)"/><circle cx="15" cy="42" r="4" fill="#f97316" opacity="0.5"><animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite"/></circle>',
   eq_staff_wisdom: '<rect x="18" y="35" width="2.5" height="35" rx="1" fill="#7c3aed" transform="rotate(-10,19,52)"/><circle cx="17" cy="36" r="4" fill="#a78bfa" opacity="0.7"><animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/></circle>',
+  starter_sword: '<rect x="20" y="48" width="2.5" height="18" rx="1" fill="#78716c" transform="rotate(-15,21,57)"/><rect x="17" y="47" width="8" height="2.5" rx="1" fill="#57534e" transform="rotate(-15,21,48)"/>',
+  starter_bow: '<path d="M18,42 C14,50 14,60 18,68" fill="none" stroke="#92400e" stroke-width="2"/><line x1="18" y1="42" x2="18" y2="68" stroke="#d4a373" stroke-width="0.8"/>',
+  starter_staff: '<rect x="19" y="38" width="2" height="30" rx="1" fill="#78350f" transform="rotate(-8,20,53)"/><circle cx="19" cy="38" r="3" fill="#a67c52" opacity="0.6"/>',
+  starter_dagger: '<rect x="22" y="55" width="2" height="12" rx="0.5" fill="#9ca3af" transform="rotate(-20,23,61)"/><rect x="20" y="54" width="6" height="2" rx="0.5" fill="#57534e" transform="rotate(-20,23,55)"/>',
+  starter_lute: '<ellipse cx="22" cy="62" rx="5" ry="7" fill="#92400e" transform="rotate(-15,22,62)"/><rect x="21" y="48" width="2" height="14" rx="0.5" fill="#78350f" transform="rotate(-15,22,55)"/>',
+  starter_wrench: '<rect x="20" y="52" width="2" height="16" rx="1" fill="#6b7280" transform="rotate(-10,21,60)"/><path d="M18,52 C16,50 17,47 20,47 C23,47 24,50 22,52" fill="#9ca3af" transform="rotate(-10,20,50)"/>',
   // Back items
   eq_leather_cloak: '<path d="M35,42 C32,50 30,65 33,78 L50,75 L67,78 C70,65 68,50 65,42" fill="#92400e" opacity="0.6"/>',
   eq_dragon_cloak: '<path d="M35,42 C32,50 28,65 33,80 L50,76 L67,80 C72,65 68,50 65,42" fill="#7f1d1d" opacity="0.7"/><path d="M33,80 L30,82 M67,80 L70,82" stroke="#991b1b" stroke-width="1.5"/>',
   eq_guild_banner: '<line x1="70" y1="30" x2="70" y2="75" stroke="#78350f" stroke-width="2"/><rect x="60" y="30" width="18" height="14" rx="1" fill="#4338ca"/><text x="69" y="41" text-anchor="middle" fill="#ffd700" font-size="8" font-weight="bold">G</text>',
+  starter_cloak: '<path d="M37,44 C35,52 34,62 36,74 L50,72 L64,74 C66,62 65,52 63,44" fill="#78716c" opacity="0.45"/>',
+  starter_hood: '<path d="M37,44 C35,52 34,60 36,70 L50,68 L64,70 C66,60 65,52 63,44" fill="#1a1a2e" opacity="0.5"/><path d="M38,32 C38,24 43,20 50,20 C57,20 62,24 62,32" fill="#1a1a2e" opacity="0.3"/>',
   // Armor
   eq_iron_armor: '<path d="M38,45 L38,62 L50,65 L62,62 L62,45 L56,42 L44,42 Z" fill="#9ca3af" stroke="#6b7280" stroke-width="0.8"/>',
+  starter_chain: '<path d="M40,56 L40,72 L50,74 L60,72 L60,56 L55,54 L45,54 Z" fill="#9ca3af" opacity="0.5"/><line x1="45" y1="58" x2="55" y2="58" stroke="#d4d4d8" stroke-width="0.5"/><line x1="45" y1="62" x2="55" y2="62" stroke="#d4d4d8" stroke-width="0.5"/><line x1="45" y1="66" x2="55" y2="66" stroke="#d4d4d8" stroke-width="0.5"/>',
+  starter_leather: '<path d="M40,56 L40,72 L50,74 L60,72 L60,56 L55,54 L45,54 Z" fill="#92400e" opacity="0.45"/>',
+  starter_robe: '<path d="M38,54 L38,78 L50,80 L62,78 L62,54 L56,52 L44,52 Z" fill="#4338ca" opacity="0.4"/><line x1="50" y1="54" x2="50" y2="78" stroke="#6366f1" stroke-width="0.5" opacity="0.5"/>',
+  starter_plate: '<path d="M39,55 L39,70 L50,72 L61,70 L61,55 L56,53 L44,53 Z" fill="#78716c" stroke="#a8a29e" stroke-width="0.6"/><circle cx="50" cy="60" r="3" fill="#a8a29e" opacity="0.4"/>',
+  starter_tunic: '<path d="M40,56 L40,74 L50,76 L60,74 L60,56 L55,54 L45,54 Z" fill="#7c3aed" opacity="0.35"/>',
 };
 
 // Companion positions
@@ -115,16 +154,26 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
   const bgSvg = BACKGROUNDS[bgKey] || BACKGROUNDS.default;
   const auraSvg = avatar.equippedAura ? (AURA_EFFECTS[avatar.equippedAura] || '') : '';
 
-  // Equipment overlays
-  const headSvg = avatar.equippedHead ? (EQUIPMENT_OVERLAYS[avatar.equippedHead] || '') : '';
-  const weaponSvg = avatar.equippedWeapon ? (EQUIPMENT_OVERLAYS[avatar.equippedWeapon] || '') : '';
-  const backSvg = avatar.equippedBack ? (EQUIPMENT_OVERLAYS[avatar.equippedBack] || '') : '';
-  const armorSvg = avatar.equippedArmor ? (EQUIPMENT_OVERLAYS[avatar.equippedArmor] || '') : '';
+  // Resolve equipment: use equipped items, fall back to class starter gear
+  const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
+  const startGear = cls.startGear || {};
+  const resolveGear = (slot) => avatar[slot] || startGear[slot.replace('equipped', '').toLowerCase()] || null;
+
+  const headId = avatar.equippedHead || startGear.head || null;
+  const weaponId = avatar.equippedWeapon || startGear.weapon || null;
+  const backId = avatar.equippedBack || startGear.back || null;
+  const armorId = avatar.equippedArmor || startGear.armor || null;
+
+  const headSvg = headId ? (EQUIPMENT_OVERLAYS[headId] || '') : '';
+  const weaponSvg = weaponId ? (EQUIPMENT_OVERLAYS[weaponId] || '') : '';
+  const backSvg = backId ? (EQUIPMENT_OVERLAYS[backId] || '') : '';
+  const armorSvg = armorId ? (EQUIPMENT_OVERLAYS[armorId] || '') : '';
 
   // Companion
   const companion = avatar.equippedCompanion ? COMPANION_SPRITES[avatar.equippedCompanion] : null;
 
-  const hairPath = HAIR_PATHS[hairStyle] || '';
+  const hairGen = HAIR_SVG[hairStyle] || HAIR_SVG.short;
+  const hairSvg = hairGen(hair);
   const eyeL = EYES[expr] ? EYES[expr](42, 42, eye) : EYES.neutral(42, 42, eye);
   const eyeR = EYES[expr] ? EYES[expr](58, 42, eye) : EYES.neutral(58, 42, eye);
   const mouth = MOUTHS[expr] ? MOUTHS[expr](50, 52) : MOUTHS.neutral(50, 52);
@@ -156,8 +205,8 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
     <!-- Hands -->
     <circle cx="33" cy="73" r="3.5" fill="${skin}"/>
     <circle cx="67" cy="73" r="3.5" fill="${skin}"/>
-    <!-- Armor overlay -->
-    ${armorSvg || `<rect x="40" y="56" width="20" height="22" rx="4" fill="${lighten(skin, 10)}" opacity="0.3"/>`}
+    <!-- Armor/clothing overlay -->
+    ${armorSvg || `<path d="M41,56 L41,74 L50,76 L59,74 L59,56 L55,54 L45,54 Z" fill="#6b7280" opacity="0.3"/>`}
     <!-- Weapon -->
     ${weaponSvg}
     <!-- Head -->
@@ -166,7 +215,7 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
     <ellipse cx="34" cy="42" rx="3" ry="4" fill="${skinDark}"/>
     <ellipse cx="66" cy="42" rx="3" ry="4" fill="${skinDark}"/>
     <!-- Hair -->
-    ${hairPath ? `<path d="${hairPath}" fill="${hair}"/>` : ''}
+    ${hairSvg}
     <!-- Eyes -->
     ${eyeL}
     ${eyeR}

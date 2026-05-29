@@ -3,6 +3,16 @@ import Modal from './Modal';
 import { useGamification } from './GamificationContext';
 import { SHOP_ITEMS, SHOP_CATEGORIES, RARITIES, openChest as rollChest } from '../utils/shopData';
 
+function GoldCoin({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" className="inline-block shrink-0">
+      <circle cx="8" cy="8" r="7" fill="#f59e0b" stroke="#d97706" strokeWidth="1"/>
+      <circle cx="8" cy="8" r="5" fill="#fbbf24"/>
+      <text x="8" y="11" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#92400e">$</text>
+    </svg>
+  );
+}
+
 export default function ShopModal({ open, onClose }) {
   const { state, dispatch } = useGamification();
   const [category, setCategory] = useState('perks');
@@ -36,7 +46,7 @@ export default function ShopModal({ open, onClose }) {
         <nav className="w-40 shrink-0 space-y-1 border-r border-gray-100 pr-3">
           {/* Coin balance */}
           <div className="bg-amber-50 rounded-xl px-3 py-2.5 mb-3 text-center">
-            <span className="text-lg">🪙</span>
+            <GoldCoin size={24} />
             <p className="text-lg font-black text-amber-700">{state.coins}</p>
             <p className="text-[10px] text-amber-500 font-medium">Coins</p>
           </div>
@@ -77,7 +87,7 @@ export default function ShopModal({ open, onClose }) {
                     <p className="text-[10px] text-gray-500 leading-tight">{item.desc}</p>
                   </div>
                   <div className="mt-auto flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-600 flex items-center gap-0.5">🪙 {item.cost}</span>
+                    <span className="text-xs font-bold text-amber-600 flex items-center gap-0.5"><GoldCoin size={12} /> {item.cost}</span>
                     {isOwned ? (
                       <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Ägd</span>
                     ) : (
@@ -106,7 +116,7 @@ export default function ShopModal({ open, onClose }) {
       {chestReward && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" onClick={() => setChestReward(null)}>
           <div className="bg-white rounded-2xl p-6 text-center shadow-2xl animate-in zoom-in max-w-xs" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">{chestReward.type === 'coins' ? '🪙' : chestReward.item?.icon || '📦'}</p>
+            <p className="text-4xl mb-3">{chestReward.type === 'coins' ? '💰' : chestReward.item?.icon || '📦'}</p>
             <p className="text-lg font-bold text-gray-800">
               {chestReward.type === 'coins' ? `${chestReward.amount} Coins!` : chestReward.item?.name || 'Föremål'}
             </p>
