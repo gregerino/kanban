@@ -11,10 +11,11 @@ CREATE TABLE IF NOT EXISTS boards (
   UNIQUE(user_id, board_id)
 );
 
--- 2. User settings table — stores active board preference
+-- 2. User settings table — stores active board preference + gamification state
 CREATE TABLE IF NOT EXISTS user_settings (
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   active_board_id text DEFAULT '',
+  gamification_data jsonb DEFAULT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL
 );
 

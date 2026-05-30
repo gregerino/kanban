@@ -1087,7 +1087,7 @@ function AppShell() {
   }
 
   return (
-    <GamificationProvider enabled={gamificationEnabled}>
+    <GamificationProvider enabled={gamificationEnabled} user={user}>
       <DragProvider>
         <AppInner gamificationEnabled={gamificationEnabled} onToggleGamification={toggleGamification} />
       </DragProvider>
