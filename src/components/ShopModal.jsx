@@ -40,7 +40,7 @@ export default function ShopModal({ open, onClose, onBack }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} onBack={onBack} title="Butik" wide>
+    <Modal open={open} onClose={onClose} onBack={onBack} title="Shop" wide>
       <div className="flex gap-4 min-h-[420px]">
         {/* Sidebar categories */}
         <nav className="w-40 shrink-0 space-y-1 border-r border-gray-100 pr-3">

@@ -437,6 +437,116 @@ const HAIR_SPRITES_64 = {
   bald: () => [],
 };
 
+// ─── PARAMETERIZED ARMOR GENERATOR ──────────────────────────────
+// Builds a distinct torso armor sprite from a style config so each shop
+// armor looks unique (different base color, pattern, trim, shoulders, glow).
+function makeArmor(cfg) {
+  return () => {
+    const base = cfg.base;
+    const hi = cfg.hi || lighten(base, 28);
+    const sh = cfg.sh || darken(base, 22);
+    const sh2 = cfg.sh2 || darken(base, 42);
+    const p = [];
+    const top = 29;
+    const bot = cfg.skirt ? 51 : 43;
+    const left = 17, right = 46;
+
+    for (let r = top; r <= bot; r++) {
+      for (let c = left; c <= right; c++) {
+        const rr = r - top, cc = c - left;
+        let color = base;
+        switch (cfg.pattern) {
+          case 'scale': {
+            const band = Math.floor(rr / 2);
+            const offset = band % 2;
+            color = ((cc + offset) % 2 === 0) ? base : sh;
+            if (rr % 2 === 0) color = darken(color, 8); // scale lower edge
+            break;
+          }
+          case 'chain': {
+            color = ((r + c) % 2 === 0) ? hi : sh;
+            break;
+          }
+          case 'studded': {
+            color = base;
+            if (rr % 3 === 1 && cc % 4 === 1) color = hi; // rivets
+            break;
+          }
+          case 'banded': {
+            color = (Math.floor(rr / 2) % 2 === 0) ? base : sh;
+            break;
+          }
+          case 'cloth': {
+            color = (cc % 5 < 3) ? base : darken(base, 8);
+            break;
+          }
+          case 'plate':
+          default: {
+            color = base;
+            if (c === 31 || c === 32) color = darken(base, 10); // central seam
+            break;
+          }
+        }
+        // Directional shading overrides edges for a 3D look
+        if (c <= left + 1) color = hi;
+        else if (c === left + 2) color = lighten(color, 12);
+        else if (c >= right - 1) color = sh2;
+        else if (c >= right - 3) color = sh;
+        p.push([r, c, color]);
+      }
+    }
+
+    // Shoulder pauldrons
+    if (cfg.shoulders) {
+      const sc = cfg.shoulderColor || base;
+      const scHi = lighten(sc, 28), scSh = darken(sc, 28);
+      for (let r = 27; r <= 31; r++) {
+        for (let c = 9; c <= 17; c++) p.push([r, c, c <= 11 ? scHi : (c >= 16 ? scSh : sc)]);
+        for (let c = 46; c <= 54; c++) p.push([r, c, c <= 47 ? scHi : (c >= 52 ? scSh : sc)]);
+      }
+    }
+
+    // Neckline trim
+    if (cfg.trim) {
+      const tc = cfg.trimColor || '#ffd700';
+      const tcSh = darken(tc, 25);
+      for (let c = left + 1; c <= right - 1; c++) { p.push([top, c, tc]); p.push([top + 1, c, tcSh]); }
+    }
+
+    // Waist belt
+    if (cfg.belt) {
+      const bc = cfg.beltColor || '#5a3825';
+      for (let c = left; c <= right; c++) { p.push([38, c, bc]); p.push([39, c, darken(bc, 12)]); }
+      const bk = cfg.buckleColor || '#ffd700';
+      p.push([38, 31, bk], [38, 32, bk], [39, 31, bk], [39, 32, bk]);
+    }
+
+    // Chest emblem
+    if (cfg.emblem) {
+      const ec = cfg.emblemColor || '#ffd700';
+      const ecHi = lighten(ec, 30);
+      p.push([33, 31, ec], [33, 32, ec]);
+      p.push([34, 30, ec], [34, 31, ecHi], [34, 32, ecHi], [34, 33, ec]);
+      p.push([35, 30, ec], [35, 31, ec], [35, 32, ec], [35, 33, ec]);
+      p.push([36, 31, ec], [36, 32, ec]);
+    }
+
+    // Glowing seams (perk armors)
+    if (cfg.glow) {
+      const gc = cfg.glowColor;
+      const gcHi = lighten(gc, 45);
+      for (let r = 30; r <= 42; r++) {
+        if (r % 2 === 0) { p.push([r, 31, gc], [r, 32, gcHi]); }
+      }
+      for (let r = 31; r <= 41; r += 3) {
+        p.push([r, 20, gc], [r, 43, gc]);
+      }
+    }
+
+    return p;
+  };
+}
+
 // Equipment overlays for 64x64
 const ARMOR_SPRITES_64 = {
   starter_chain: () => {
@@ -504,20 +614,29 @@ const ARMOR_SPRITES_64 = {
     for (let i = 0; i < 4; i++) { p.push([29 + i, 30 + i, '#a78bfa']); p.push([29 + i, 33 - i, '#a78bfa']); }
     return p;
   },
-  eq_iron_armor: () => {
-    const p = [];
-    for (let r = 29; r <= 43; r++)
-      for (let c = 17; c <= 46; c++) {
-        if (c <= 20) p.push([r, c, '#9ca3af']);
-        else if (c >= 43) p.push([r, c, '#4b5563']);
-        else p.push([r, c, (r + c) % 3 === 0 ? '#6b7280' : '#9ca3af']);
-      }
-    for (let r = 28; r <= 30; r++) {
-      for (let c = 10; c <= 17; c++) p.push([r, c, '#6b7280']);
-      for (let c = 46; c <= 53; c++) p.push([r, c, '#6b7280']);
-    }
-    return p;
-  },
+  // ── Standard shop armors (cosmetic) ──
+  eq_iron_armor:         makeArmor({ base: '#8d96a3', pattern: 'plate' }),
+  eq_bronze_plate:       makeArmor({ base: '#a9722e', pattern: 'plate' }),
+  eq_steel_plate:        makeArmor({ base: '#9aa3af', pattern: 'plate', shoulders: true, shoulderColor: '#7c8590' }),
+  eq_scale_mail:         makeArmor({ base: '#2a8a7a', pattern: 'scale' }),
+  eq_studded_leather:    makeArmor({ base: '#7a5230', pattern: 'studded', belt: true, beltColor: '#4a3320' }),
+  eq_silver_hauberk:     makeArmor({ base: '#b8c0cc', pattern: 'chain' }),
+  eq_crimson_brigandine: makeArmor({ base: '#9e2b2b', pattern: 'banded', belt: true }),
+  eq_ranger_garb:        makeArmor({ base: '#3c5a3a', pattern: 'cloth', belt: true, beltColor: '#3a2a1a' }),
+  eq_obsidian_vest:      makeArmor({ base: '#2b2b3a', pattern: 'plate', trim: true, trimColor: '#6b7280' }),
+  eq_royal_doublet:      makeArmor({ base: '#2f4faa', pattern: 'cloth', trim: true, trimColor: '#ffd700', emblem: true, emblemColor: '#ffd700' }),
+
+  // ── Premium perk armors (glowing) ──
+  eq_dragonscale:        makeArmor({ base: '#8a2020', pattern: 'scale', glow: true, glowColor: '#ef4444' }),
+  eq_golden_plate:       makeArmor({ base: '#d4a017', pattern: 'plate', emblem: true, emblemColor: '#fff4c4', glow: true, glowColor: '#ffe98a' }),
+  eq_arcane_vestments:   makeArmor({ base: '#5b3da8', pattern: 'cloth', skirt: true, trim: true, trimColor: '#c4b5fd', glow: true, glowColor: '#a78bfa' }),
+  eq_frost_plate:        makeArmor({ base: '#5b8fc7', pattern: 'plate', glow: true, glowColor: '#bae6fd' }),
+  eq_shadow_plate:       makeArmor({ base: '#1f2030', pattern: 'plate', glow: true, glowColor: '#8b5cf6' }),
+  eq_phoenix_mail:       makeArmor({ base: '#c2410c', pattern: 'scale', glow: true, glowColor: '#fbbf24' }),
+  eq_titan_plate:        makeArmor({ base: '#6b7280', pattern: 'plate', shoulders: true, shoulderColor: '#4b5563', emblem: true, emblemColor: '#cbd5e1' }),
+  eq_emerald_aegis:      makeArmor({ base: '#1f8a4c', pattern: 'plate', emblem: true, emblemColor: '#a7f3d0', glow: true, glowColor: '#34d399' }),
+  eq_void_armor:         makeArmor({ base: '#2a1a3a', pattern: 'plate', glow: true, glowColor: '#a855f7' }),
+  eq_celestial_plate:    makeArmor({ base: '#e8e4d8', pattern: 'plate', shoulders: true, shoulderColor: '#d4c98a', trim: true, trimColor: '#ffd700', glow: true, glowColor: '#fde68a' }),
 };
 
 const WEAPON_SPRITES_64 = {

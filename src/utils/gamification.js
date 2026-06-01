@@ -4,7 +4,7 @@
  * State is persisted to localStorage per-user.
  */
 
-import { COIN_REWARDS, createDefaultAvatar } from './shopData';
+import { COIN_REWARDS, createDefaultAvatar, SHOP_ITEMS } from './shopData';
 
 const STORAGE_KEY = 'questlog_gamification';
 
@@ -291,11 +291,20 @@ function addCoins(state, amount, reason) {
   };
 }
 
-// Helper: apply XP boost perks
+// Helper: apply XP boost perks (temporary potions + passive equipped armor)
 function getXPMultiplier(state) {
   const now = Date.now();
   const activeBoosts = (state.activePerks || []).filter(p => p.type === 'xp_boost' && p.expiresAt > now);
-  return 1 + activeBoosts.reduce((sum, p) => sum + p.value, 0);
+  let mult = 1 + activeBoosts.reduce((sum, p) => sum + p.value, 0);
+  // Passive perk from equipped armor
+  const equippedArmor = state.avatar?.equippedArmor;
+  if (equippedArmor) {
+    const armorItem = SHOP_ITEMS.find(i => i.id === equippedArmor);
+    if (armorItem?.armorPerk?.type === 'xp_boost') {
+      mult += armorItem.armorPerk.value;
+    }
+  }
+  return mult;
 }
 
 // Helper: check level up and award coins

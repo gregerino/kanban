@@ -7,7 +7,7 @@ import AvatarRenderer from './AvatarRenderer';
 
 const EQUIP_SLOTS_LEFT = [
   { key: 'equippedHead', label: 'Hjälm / Mask', icon: '⛑️', filter: i => i.category === 'equipment' && i.slot === 'head' },
-  { key: 'equippedArmor', label: 'Överkropp', icon: '🛡️', filter: i => i.category === 'equipment' && i.slot === 'armor' },
+  { key: 'equippedArmor', label: 'Överkropp', icon: '🛡️', filter: i => i.slot === 'armor' },
   { key: 'equippedWeapon', label: 'Vapen', icon: '⚔️', filter: i => i.category === 'equipment' && i.slot === 'weapon' },
   { key: 'equippedBack', label: 'Mantel', icon: '🧥', filter: i => i.category === 'equipment' && i.slot === 'back' },
 ];
@@ -43,7 +43,7 @@ export default function AvatarModal({ open, onClose, onBack }) {
   return (
     <Modal open={open} onClose={onClose} onBack={onBack} title="Min Avatar" wide>
       {/* Subtitle */}
-      <p className="text-xs text-gray-400 -mt-2 mb-3">Få ny utrustning genom att gå upp i Level, låsa upp Achievements eller besöka Butiken.</p>
+      <p className="text-xs text-gray-400 -mt-2 mb-3">Få ny utrustning genom att gå upp i Level, låsa upp Achievements eller besöka Shopen.</p>
 
       {/* Tab nav */}
       <div className="flex gap-1 mb-4 border-b border-gray-100 pb-2">
@@ -156,7 +156,7 @@ export default function AvatarModal({ open, onClose, onBack }) {
               const slotDef = [...EQUIP_SLOTS_LEFT, ...EQUIP_SLOTS_RIGHT].find(s => s.key === activeSlot);
               if (!slotDef) return null;
               const available = SHOP_ITEMS.filter(i => owned.includes(i.id) && slotDef.filter(i));
-              if (available.length === 0) return <p className="text-xs text-gray-400">Inga ägda föremål — besök Butiken!</p>;
+              if (available.length === 0) return <p className="text-xs text-gray-400">Inga ägda föremål — besök Shopen!</p>;
               return available.map(item => {
                 const r = RARITIES[item.rarity] || RARITIES.common;
                 const isEquipped = avatar[activeSlot] === item.id;

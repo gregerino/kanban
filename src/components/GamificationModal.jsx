@@ -36,7 +36,7 @@ export default function GamificationModal({ open, onClose, onOpenShop, onOpenAva
           ))}
           <div className="border-t border-gray-100 my-2 pt-2 space-y-1">
             <button onClick={onOpenShop} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors text-left">
-              <span className="text-base">🛒</span>Butik
+              <span className="text-base">🛒</span>Shop
             </button>
             <button onClick={onOpenAvatar} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors text-left">
               <span className="text-base">🎭</span>Avatar

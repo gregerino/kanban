@@ -84,6 +84,7 @@ export const AVATAR_OPTIONS = {
 // ─── SHOP ITEMS ─────────────────────────────────────────────────
 export const SHOP_CATEGORIES = [
   { id: 'perks', name: 'Drycker & Perks', icon: '🧪' },
+  { id: 'armor', name: 'Rustningar', icon: '🛡️' },
   { id: 'titles', name: 'Titlar', icon: '📛' },
   { id: 'companions', name: 'Följeslagare', icon: '🐾' },
   { id: 'equipment', name: 'Utrustning', icon: '⚔️' },
@@ -121,9 +122,32 @@ export const SHOP_ITEMS = [
   { id: 'pet_golem',     name: 'Golem',              desc: 'Tålmodig stenbeskyddare',          category: 'companions', rarity: 'legendary', cost: 2500, icon: '🗿' },
   { id: 'pet_phoenix',   name: 'Fenix',              desc: 'Odödlig eldfågel',                 category: 'companions', rarity: 'mythic',    cost: 5000, icon: '🔥' },
 
+  // ── Armor (10 standard, cosmetic) ──
+  { id: 'eq_iron_armor',         name: 'Järnrustning',      desc: 'Solid standardrustning',           category: 'armor', rarity: 'common', cost: 200, icon: '🛡️', slot: 'armor' },
+  { id: 'eq_bronze_plate',       name: 'Bronsplåt',         desc: 'Polerad bronsharnesk',             category: 'armor', rarity: 'common', cost: 180, icon: '🟫', slot: 'armor' },
+  { id: 'eq_steel_plate',        name: 'Stålplåt',          desc: 'Tung plåt med axelskydd',          category: 'armor', rarity: 'common', cost: 250, icon: '⚙️', slot: 'armor' },
+  { id: 'eq_scale_mail',         name: 'Fjällbrynja',       desc: 'Överlappande fjäll',               category: 'armor', rarity: 'rare',   cost: 350, icon: '🐍', slot: 'armor' },
+  { id: 'eq_studded_leather',    name: 'Nitläder',          desc: 'Härdat läder med nitar',           category: 'armor', rarity: 'common', cost: 160, icon: '🟤', slot: 'armor' },
+  { id: 'eq_silver_hauberk',     name: 'Silverbrynja',      desc: 'Finmaskig silverbrynja',           category: 'armor', rarity: 'rare',   cost: 400, icon: '⛓️', slot: 'armor' },
+  { id: 'eq_crimson_brigandine', name: 'Karmosinbrynja',    desc: 'Bandad stridsväst',                category: 'armor', rarity: 'rare',   cost: 450, icon: '🟥', slot: 'armor' },
+  { id: 'eq_ranger_garb',        name: 'Spejardräkt',       desc: 'Lätt klädnad för skogen',          category: 'armor', rarity: 'common', cost: 220, icon: '🌲', slot: 'armor' },
+  { id: 'eq_obsidian_vest',      name: 'Obsidianväst',      desc: 'Mörk pansarväst',                  category: 'armor', rarity: 'rare',   cost: 500, icon: '⬛', slot: 'armor' },
+  { id: 'eq_royal_doublet',      name: 'Kunglig livrock',   desc: 'Praktfull hovdräkt med guldtrim',  category: 'armor', rarity: 'rare',   cost: 600, icon: '👔', slot: 'armor' },
+
+  // ── Armor (10 premium, ger passiv XP-perk medan utrustad) ──
+  { id: 'eq_dragonscale',      name: 'Drakfjällsrustning', desc: 'Rustning • +5% XP medan utrustad',  category: 'armor', rarity: 'epic',      cost: 1200, icon: '🐉', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.05 } },
+  { id: 'eq_golden_plate',     name: 'Gyllene plåt',       desc: 'Rustning • +6% XP medan utrustad',  category: 'armor', rarity: 'epic',      cost: 1500, icon: '🟨', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.06 } },
+  { id: 'eq_arcane_vestments', name: 'Arkanmantel',        desc: 'Rustning • +6% XP medan utrustad',  category: 'armor', rarity: 'epic',      cost: 1300, icon: '🔮', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.06 } },
+  { id: 'eq_frost_plate',      name: 'Frostplåt',          desc: 'Rustning • +6% XP medan utrustad',  category: 'armor', rarity: 'epic',      cost: 1400, icon: '❄️', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.06 } },
+  { id: 'eq_shadow_plate',     name: 'Skuggplåt',          desc: 'Rustning • +7% XP medan utrustad',  category: 'armor', rarity: 'epic',      cost: 1600, icon: '🌑', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.07 } },
+  { id: 'eq_phoenix_mail',     name: 'Fenixbrynja',        desc: 'Rustning • +8% XP medan utrustad',  category: 'armor', rarity: 'legendary', cost: 2200, icon: '🔥', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.08 } },
+  { id: 'eq_titan_plate',      name: 'Titanplåt',          desc: 'Rustning • +9% XP medan utrustad',  category: 'armor', rarity: 'legendary', cost: 2500, icon: '🗿', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.09 } },
+  { id: 'eq_emerald_aegis',    name: 'Smaragdsköld',       desc: 'Rustning • +8% XP medan utrustad',  category: 'armor', rarity: 'legendary', cost: 2400, icon: '💚', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.08 } },
+  { id: 'eq_void_armor',       name: 'Tomrumsrustning',    desc: 'Rustning • +10% XP medan utrustad', category: 'armor', rarity: 'mythic',    cost: 4000, icon: '🟣', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.10 } },
+  { id: 'eq_celestial_plate',  name: 'Himmelsk plåt',      desc: 'Rustning • +12% XP medan utrustad', category: 'armor', rarity: 'mythic',    cost: 5000, icon: '✨', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.12 } },
+
   // ── Equipment ──
   { id: 'eq_wooden_sword',  name: 'Träsvärd',          desc: 'Ett enkelt nybörjarvapen',         category: 'equipment', rarity: 'common',    cost: 100,  icon: '🗡️', slot: 'weapon' },
-  { id: 'eq_iron_armor',    name: 'Järnrustning',      desc: 'Solid standardrustning',           category: 'equipment', rarity: 'common',    cost: 200,  icon: '🛡️', slot: 'armor' },
   { id: 'eq_leather_cloak', name: 'Lädermantel',       desc: 'Enkel resemantel',                 category: 'equipment', rarity: 'common',    cost: 150,  icon: '🧥', slot: 'back' },
   { id: 'eq_wizard_hat',    name: 'Trollkarlshatt',    desc: 'Magisk huvudbonad',                category: 'equipment', rarity: 'rare',      cost: 400,  icon: '🎩', slot: 'head' },
   { id: 'eq_fire_sword',    name: 'Eldklinga',         desc: 'Svärd höljet i eld',               category: 'equipment', rarity: 'epic',      cost: 1200, icon: '🔥', slot: 'weapon' },
