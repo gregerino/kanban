@@ -27,6 +27,8 @@ import XPNotification from './components/XPNotification';
 import ShopModal from './components/ShopModal';
 import AvatarModal from './components/AvatarModal';
 import ToastProvider, { useToast } from './components/ToastContext';
+import { useTheme } from './components/ThemeContext';
+import LevelUpCelebration from './components/LevelUpCelebration';
 
 function DropZone({ storyId, col, children }) {
   const ref = useRef(null);
@@ -88,6 +90,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [avatarModal, setAvatarModal] = useState(false);
   const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
   const { showToast } = useToast();
+  const { theme, toggleTheme } = useTheme();
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
@@ -494,6 +497,18 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
               )}
             </div>
           )}
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
+          >
+            {theme === 'dark' ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            )}
+          </button>
           {/* Search */}
           <div className="relative">
             <button onClick={() => setSearchOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-gray-100" title="Sök uppgifter">
@@ -1071,6 +1086,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
       <AvatarModal open={avatarModal} onClose={() => setAvatarModal(false)} onBack={() => { setAvatarModal(false); setGamificationModal(true); }} />
       <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} onBack={() => { setDungeonTimerOpen(false); setGamificationModal(true); }} />
       <XPNotification />
+      <LevelUpCelebration />
       <UpdateChecker />
       {/* Copy board modal */}
       {copyBoardModal && (

@@ -90,3 +90,25 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #5b5d64; }
   .sticky-card:hover { transform: none !important; }
   .sticky-card::after { width: 16px; height: 16px; }
 }
+
+/* Level-up celebration */
+@keyframes confetti-fall {
+  0%   { transform: translateY(-15vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(115vh) rotate(680deg); opacity: 0.85; }
+}
+@keyframes levelup-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  18%  { transform: scale(1.12); opacity: 1; }
+  72%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.96); opacity: 0; }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

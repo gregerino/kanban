@@ -21,6 +21,13 @@ export default function ShopModal({ open, onClose, onBack }) {
   const owned = state.inventory || [];
   const items = SHOP_ITEMS.filter(i => i.category === category);
 
+  // Count affordable items in a category that the user doesn't already own
+  const dealCount = (catId) => SHOP_ITEMS.filter(i =>
+    i.category === catId &&
+    state.coins >= i.cost &&
+    !(owned.includes(i.id) && !i.perkType && i.category !== 'chests')
+  ).length;
+
   const handleBuy = (item) => {
     if (state.coins < item.cost) return;
     if (item.category === 'chests') {
@@ -50,18 +57,26 @@ export default function ShopModal({ open, onClose, onBack }) {
             <p className="text-lg font-black text-amber-700">{state.coins}</p>
             <p className="text-[10px] text-amber-500 font-medium">Coins</p>
           </div>
-          {SHOP_CATEGORIES.map(c => (
-            <button
-              key={c.id}
-              onClick={() => setCategory(c.id)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
-                category === c.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-base">{c.icon}</span>
-              <span className="truncate">{c.name}</span>
-            </button>
-          ))}
+          {SHOP_CATEGORIES.map(c => {
+            const deals = dealCount(c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => setCategory(c.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                  category === c.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-base">{c.icon}</span>
+                <span className="truncate flex-1">{c.name}</span>
+                {deals > 0 && (
+                  <span className="shrink-0 text-[9px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5" title={`${deals} föremål du har råd med`}>
+                    {deals}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Items grid */}

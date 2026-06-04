@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useGamification } from './GamificationContext';
+import { SHOP_ITEMS } from '../utils/shopData';
 
 const TABS = [
   { key: 'overview', label: 'Översikt', icon: '⚔️' },
@@ -16,6 +17,20 @@ export default function GamificationModal({ open, onClose, onOpenShop, onOpenAva
   if (!levelInfo) return null;
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
+
+  // Active bonuses (equipped armor perk + active potion perks)
+  const now = Date.now();
+  const bonuses = [];
+  const equippedArmor = state.avatar?.equippedArmor;
+  const armorItem = equippedArmor ? SHOP_ITEMS.find(i => i.id === equippedArmor) : null;
+  if (armorItem?.armorPerk?.type === 'xp_boost') {
+    bonuses.push({ icon: '🛡️', label: armorItem.name, value: `+${Math.round(armorItem.armorPerk.value * 100)}% XP` });
+  }
+  (state.activePerks || []).forEach(p => {
+    if (p.type === 'xp_boost' && (p.expiresAt > now || p.expiresAt === Infinity)) {
+      bonuses.push({ icon: '🧪', label: 'XP-dryck', value: `+${Math.round(p.value * 100)}% XP` });
+    }
+  });
 
   return (
     <Modal open={open} onClose={onClose} title="Gamification" wide>
@@ -73,6 +88,18 @@ export default function GamificationModal({ open, onClose, onOpenShop, onOpenAva
                   </div>
                 </div>
               </div>
+
+              {/* Active bonuses */}
+              {bonuses.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500">Aktiva bonusar:</span>
+                  {bonuses.map((b, i) => (
+                    <span key={i} className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5" title={b.label}>
+                      <span>{b.icon}</span>{b.value}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Quick stats */}
               <div className="grid grid-cols-3 gap-3">

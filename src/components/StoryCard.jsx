@@ -12,6 +12,8 @@ export default function StoryCard({ story, tasks, columns, onEdit, onDelete, onC
   const storyTasks = tasks.filter(t => t.storyId === story.id);
   const activeTasks = storyTasks.filter(t => t.status !== lastCol);
   const doneTasks = storyTasks.length - activeTasks.length;
+  const total = storyTasks.length;
+  const pct = total > 0 ? Math.round((doneTasks / total) * 100) : 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onClick={onClick}>
@@ -29,6 +31,20 @@ export default function StoryCard({ story, tasks, columns, onEdit, onDelete, onC
           </div>
         </div>
         {story.description && <p className="text-xs text-gray-500 mb-1 line-clamp-2">{story.description}</p>}
+        {total > 0 && (
+          <div className="mt-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-medium text-gray-400">{doneTasks}/{total} klara</span>
+              <span className="text-[10px] font-bold text-gray-500">{pct}%</span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, background: pct === 100 ? '#22c55e' : (story.color && !story.color.startsWith('bg-') ? story.color : '#6366f1') }}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-2">
           <span className="text-xs text-gray-500">{activeTasks.length} aktiva</span>
           {doneTasks > 0 && <span className="text-xs text-green-500">{doneTasks} klara</span>}
