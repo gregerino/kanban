@@ -42,18 +42,10 @@ export default function GamificationBar({ onClick }) {
         </span>
       </div>
 
-      {/* Level + XP bar */}
-      <div className="hidden md:flex flex-col min-w-[90px]">
-        <div className="flex items-center justify-between mb-0.5">
-          <span className="text-[10px] font-bold text-gray-700">Lv.{levelInfo.level} {levelInfo.title}</span>
-        </div>
-        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-            style={{ width: `${levelInfo.progress * 100}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between mt-0.5">
+      {/* Level + stats (XP progress is shown by the ring around the avatar) */}
+      <div className="hidden md:flex flex-col min-w-[90px] gap-0.5">
+        <span className="text-[10px] font-bold text-gray-700">Lv.{levelInfo.level} {levelInfo.title}</span>
+        <div className="flex items-center justify-between">
           <span className="text-[9px] text-gray-400">{state.totalXP} XP</span>
           <div className="flex items-center gap-1.5">
             {/* Gold coin */}

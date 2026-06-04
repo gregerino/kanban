@@ -1078,6 +1078,77 @@ function drawBackground64(ctx) {
   ctx.fillRect(12, 10, 1, 1); ctx.fillRect(58, 6, 1, 1);
 }
 
+// Vertical gradient fill helper
+function fillVGradient(ctx, top, bot, y0 = 0, y1 = 64) {
+  for (let r = y0; r < y1; r++) {
+    const t = (r - y0) / Math.max(1, y1 - y0 - 1);
+    const rt = Math.round(parseInt(top.slice(1, 3), 16) * (1 - t) + parseInt(bot.slice(1, 3), 16) * t);
+    const gt = Math.round(parseInt(top.slice(3, 5), 16) * (1 - t) + parseInt(bot.slice(3, 5), 16) * t);
+    const bt = Math.round(parseInt(top.slice(5, 7), 16) * (1 - t) + parseInt(bot.slice(5, 7), 16) * t);
+    ctx.fillStyle = `rgb(${rt},${gt},${bt})`;
+    ctx.fillRect(0, r, 64, 1);
+  }
+}
+
+// ─── EQUIPPED BACKGROUND SCENES (shop "backgrounds" category) ────
+const BACKGROUND_SCENES = {
+  bg_forest: (ctx) => {
+    fillVGradient(ctx, '#bbe3a0', '#7cc36a', 0, 54);
+    ctx.fillStyle = '#fef9c3'; ctx.fillRect(48, 6, 5, 5); // sun
+    ctx.fillStyle = '#3f7a3a';
+    for (let i = 0; i < 6; i++) { const x = i * 11 + 2; ctx.fillRect(x + 2, 34, 3, 20); ctx.fillRect(x - 1, 32, 8, 10); }
+    ctx.fillStyle = '#4b7a3a'; ctx.fillRect(0, 54, 64, 10);
+    ctx.fillStyle = '#5c8a45'; ctx.fillRect(0, 54, 64, 1);
+  },
+  bg_guild_hall: (ctx) => {
+    fillVGradient(ctx, '#6b6f78', '#4b4e55', 0, 54);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for (let r = 8; r < 54; r += 8) {
+      ctx.fillRect(0, r, 64, 1);
+      for (let c = ((r / 8) % 2 ? 0 : 8); c < 64; c += 16) ctx.fillRect(c, r, 1, 8);
+    }
+    ctx.fillStyle = '#4338ca'; ctx.fillRect(46, 4, 10, 22);
+    ctx.fillStyle = '#ffd700'; ctx.fillRect(50, 11, 2, 2);
+    ctx.fillStyle = '#3a3d44'; ctx.fillRect(0, 54, 64, 10);
+  },
+  bg_castle: (ctx) => {
+    fillVGradient(ctx, '#7dd3fc', '#bae6fd', 0, 40);
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillRect(2, 18, 14, 36); ctx.fillRect(48, 18, 14, 36);
+    ctx.fillRect(0, 40, 64, 14);
+    ctx.fillStyle = '#6b7280';
+    for (let c = 2; c < 16; c += 4) ctx.fillRect(c, 15, 2, 3);
+    for (let c = 48; c < 62; c += 4) ctx.fillRect(c, 15, 2, 3);
+    ctx.fillRect(7, 26, 3, 6); ctx.fillRect(54, 26, 3, 6); // windows
+    ctx.fillStyle = '#7c8a4a'; ctx.fillRect(0, 54, 64, 10);
+  },
+  bg_dungeon: (ctx) => {
+    fillVGradient(ctx, '#27272a', '#18181b', 0, 54);
+    ctx.fillStyle = 'rgba(255,255,255,0.045)';
+    for (let r = 8; r < 54; r += 8) ctx.fillRect(0, r, 64, 1);
+    ctx.fillStyle = 'rgba(245,158,11,0.22)'; ctx.fillRect(4, 12, 9, 14); ctx.fillRect(51, 12, 9, 14);
+    ctx.fillStyle = '#f59e0b'; ctx.fillRect(8, 16, 2, 4); ctx.fillRect(54, 16, 2, 4);
+    ctx.fillStyle = '#fbbf24'; ctx.fillRect(8, 15, 2, 1); ctx.fillRect(54, 15, 2, 1);
+    ctx.fillStyle = '#0c0a09'; ctx.fillRect(0, 54, 64, 10);
+  },
+  bg_dragon_lair: (ctx) => {
+    fillVGradient(ctx, '#3b0a0a', '#1a0505', 0, 54);
+    ctx.fillStyle = 'rgba(239,68,68,0.16)'; ctx.fillRect(0, 30, 64, 24);
+    ctx.fillStyle = '#a16207'; ctx.fillRect(0, 54, 64, 10);
+    ctx.fillStyle = '#facc15';
+    for (let i = 0; i < 26; i++) { const x = (i * 7 + 3) % 62, y = 54 + (i % 3); ctx.fillRect(x, y, 2, 2); }
+  },
+  bg_sky_kingdom: (ctx) => {
+    fillVGradient(ctx, '#bfdbfe', '#e0f2fe', 0, 64);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(6, 12, 12, 4); ctx.fillRect(9, 9, 7, 3);
+    ctx.fillRect(40, 20, 14, 4); ctx.fillRect(44, 17, 8, 3);
+    ctx.fillRect(24, 40, 16, 4); ctx.fillRect(28, 37, 9, 3);
+    ctx.fillStyle = '#86efac'; ctx.fillRect(8, 54, 48, 6);
+    ctx.fillStyle = '#92400e'; ctx.fillRect(12, 58, 40, 4);
+  },
+};
+
 export default function AvatarRenderer({ avatar, size = 200, showBackground = true }) {
   const canvasRef = useRef(null);
 
@@ -1100,10 +1171,16 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
     const headId = avatar.equippedHead || sg.head || null;
     const backId = avatar.equippedBack || sg.back || null;
 
-    if (showBackground) drawBackground64(ctx);
+    // Background: equipped scene takes priority (shown on big AND mini avatar);
+    // otherwise the default night scene only appears in full previews.
+    const bgId = avatar.equippedBackground;
+    const bgScene = bgId && BACKGROUND_SCENES[bgId];
+    const hasBackground = !!bgScene || showBackground;
+    if (bgScene) bgScene(ctx);
+    else if (showBackground) drawBackground64(ctx);
 
     // Soft elliptical ground shadow to anchor the character
-    if (showBackground) {
+    if (hasBackground) {
       const cx = 31.5, cy = 60.5, rx = 11, ry = 2.6;
       for (let r = 57; r <= 63; r++) {
         for (let c = 19; c <= 44; c++) {
