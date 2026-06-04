@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { PRIORITIES, PRIORITY_FLAG_COLORS } from '../utils/constants';
 
-export default function TaskContextMenu({ position, task, allLabels = [], columns = [], onDelete, onOpen, onToggleLabel, onMoveToColumn, onClose }) {
+export default function TaskContextMenu({ position, task, allLabels = [], columns = [], onDelete, onOpen, onToggleLabel, onMoveToColumn, onSetPriority, onClose }) {
   const menuRef = useRef(null);
   const labelBtnRef = useRef(null);
   const moveBtnRef = useRef(null);
+  const prioBtnRef = useRef(null);
   const [showLabels, setShowLabels] = useState(false);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
+  const [showPrio, setShowPrio] = useState(false);
   const labelTimerRef = useRef(null);
   const moveTimerRef = useRef(null);
+  const prioTimerRef = useRef(null);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -21,13 +25,16 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
       window.removeEventListener('keydown', handleKey);
       clearTimeout(labelTimerRef.current);
       clearTimeout(moveTimerRef.current);
+      clearTimeout(prioTimerRef.current);
     };
   }, [onClose]);
 
-  const openLabels = () => { clearTimeout(labelTimerRef.current); setShowMoveMenu(false); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
+  const openLabels = () => { clearTimeout(labelTimerRef.current); setShowMoveMenu(false); setShowPrio(false); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
   const closeLabels = () => { clearTimeout(labelTimerRef.current); labelTimerRef.current = setTimeout(() => setShowLabels(false), 150); };
-  const openMove = () => { clearTimeout(moveTimerRef.current); setShowLabels(false); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
+  const openMove = () => { clearTimeout(moveTimerRef.current); setShowLabels(false); setShowPrio(false); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
   const closeMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(false), 150); };
+  const openPrio = () => { clearTimeout(prioTimerRef.current); setShowLabels(false); setShowMoveMenu(false); prioTimerRef.current = setTimeout(() => setShowPrio(true), 250); };
+  const closePrio = () => { clearTimeout(prioTimerRef.current); prioTimerRef.current = setTimeout(() => setShowPrio(false), 150); };
 
   // Position the main menu, with max height for scrollability
   const [adjustedPos, setAdjustedPos] = useState({ x: position.x + 8, y: position.y - 8 });
@@ -89,6 +96,64 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
         </svg>
         Öppna
       </button>
+
+      {/* Priority submenu */}
+      <div
+        ref={prioBtnRef}
+        onMouseEnter={openPrio}
+        onMouseLeave={closePrio}
+      >
+        <button
+          onClick={() => { setShowPrio(s => !s); setShowLabels(false); setShowMoveMenu(false); }}
+          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
+          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2zm9-13.5V9" />
+          </svg>
+          Prioritet
+          {task.priority && (
+            <span className="ml-1 w-2 h-2 rounded-full shrink-0" style={{ background: PRIORITY_FLAG_COLORS[task.priority] }} />
+          )}
+          <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showPrio ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      {showPrio && (
+        <div
+          style={getSubmenuPos(prioBtnRef)}
+          className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[150px]"
+          onMouseEnter={() => { clearTimeout(prioTimerRef.current); }}
+          onMouseLeave={closePrio}
+        >
+          {PRIORITIES.map(p => {
+            const active = task.priority === p;
+            return (
+              <button
+                key={p}
+                onClick={() => { onSetPriority(task.id, p); onClose(); }}
+                className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+              >
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PRIORITY_FLAG_COLORS[p] }} />
+                <span className={`text-xs ${active ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{p}</span>
+                {active && (
+                  <svg className="w-3.5 h-3.5 text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                )}
+              </button>
+            );
+          })}
+          {task.priority && (
+            <>
+              <div className="border-t border-gray-100 my-0.5" />
+              <button
+                onClick={() => { onSetPriority(task.id, ''); onClose(); }}
+                className="w-full px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <span className="w-3 h-3 rounded-full shrink-0 border border-gray-300" />
+                Ingen prioritet
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Labels submenu */}
       <div

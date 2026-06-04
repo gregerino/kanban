@@ -26,6 +26,7 @@ import DungeonTimer from './components/DungeonTimer';
 import XPNotification from './components/XPNotification';
 import ShopModal from './components/ShopModal';
 import AvatarModal from './components/AvatarModal';
+import ToastProvider, { useToast } from './components/ToastContext';
 
 function DropZone({ storyId, col, children }) {
   const ref = useRef(null);
@@ -66,7 +67,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [labelModal, setLabelModal] = useState(false);
   const [settingsModal, setSettingsModal] = useState(false);
   const [analyticsModal, setAnalyticsModal] = useState(false);
-  const [collapsedStories, setCollapsedStories] = useState({});
+  const [collapsedStories, setCollapsedStories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('questlog_collapsed_stories') || '{}'); } catch { return {}; }
+  });
+  useEffect(() => {
+    localStorage.setItem('questlog_collapsed_stories', JSON.stringify(collapsedStories));
+  }, [collapsedStories]);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [renamingBoard, setRenamingBoard] = useState(null);
@@ -81,6 +87,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [shopModal, setShopModal] = useState(false);
   const [avatarModal, setAvatarModal] = useState(false);
   const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
+  const { showToast } = useToast();
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
 
@@ -122,7 +129,6 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
     requestAnimationFrame(() => {
       setActiveId(id);
       setFilters({ status: '', priority: '', labels: [] });
-      setCollapsedStories({});
     });
   }, []);
 
@@ -191,11 +197,27 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
     if (idx >= 0) stories[idx] = story; else stories.push(story);
     return { ...d, stories };
   });
-  const deleteStory = (id) => updateBoard(d => ({
-    ...d,
-    stories: d.stories.filter(s => s.id !== id),
-    tasks: d.tasks.filter(t => t.storyId !== id),
-  }));
+  const deleteStory = (id) => {
+    const story = data.stories.find(s => s.id === id);
+    const storyIdx = data.stories.findIndex(s => s.id === id);
+    const storyTasks = data.tasks.filter(t => t.storyId === id);
+    updateBoard(d => ({
+      ...d,
+      stories: d.stories.filter(s => s.id !== id),
+      tasks: d.tasks.filter(t => t.storyId !== id),
+    }));
+    if (story) {
+      showToast(`Story "${story.title}" borttagen`, {
+        type: 'undo',
+        actionLabel: 'Ångra',
+        onAction: () => updateBoard(d => {
+          const stories = [...d.stories];
+          stories.splice(Math.min(storyIdx, stories.length), 0, story);
+          return { ...d, stories, tasks: [...d.tasks, ...storyTasks] };
+        }),
+      });
+    }
+  };
   const moveStoryUp = (idx) => {
     if (idx === 0) return;
     updateBoard(d => { const s = [...d.stories]; [s[idx - 1], s[idx]] = [s[idx], s[idx - 1]]; return { ...d, stories: s }; });
@@ -205,14 +227,29 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   };
 
   // Task CRUD
-  const saveTask = (task) => updateBoard(d => {
-    const idx = d.tasks.findIndex(t => t.id === task.id);
-    const tasks = [...d.tasks];
-    if (idx >= 0) tasks[idx] = task; else tasks.push(task);
-    return { ...d, tasks };
-  });
-  const deleteTask = (id) => updateBoard(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }));
+  const saveTask = (task) => {
+    let isNew = false;
+    updateBoard(d => {
+      const idx = d.tasks.findIndex(t => t.id === task.id);
+      const tasks = [...d.tasks];
+      if (idx >= 0) tasks[idx] = task; else { tasks.push(task); isNew = true; }
+      return { ...d, tasks };
+    });
+    showToast(isNew ? 'Uppgift skapad' : 'Ändringar sparade', { type: 'success' });
+  };
+  const deleteTask = (id) => {
+    const task = data.tasks.find(t => t.id === id);
+    updateBoard(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }));
+    if (task) {
+      showToast('Uppgift borttagen', {
+        type: 'undo',
+        actionLabel: 'Ångra',
+        onAction: () => updateBoard(d => ({ ...d, tasks: [...d.tasks, task] })),
+      });
+    }
+  };
   const addTask = (task) => updateBoard(d => ({ ...d, tasks: [...d.tasks, task] }));
+  const renameTask = (id, title) => updateBoard(d => ({ ...d, tasks: d.tasks.map(t => t.id === id ? { ...t, title } : t) }));
   const toggleCheckItem = (taskId, checkId) => updateBoard(d => ({
     ...d,
     tasks: d.tasks.map(t => t.id === taskId ? { ...t, checklist: (t.checklist || []).map(c => c.id === checkId ? { ...c, done: !c.done } : c) } : t),
@@ -304,6 +341,17 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
       return true;
     });
   }, [data.tasks, filters]);
+
+  const hasActiveFilters = !!(filters.status || filters.priority || (filters.labels && filters.labels.length > 0));
+  const allCollapsed = data.stories.length > 0 && data.stories.every(s => collapsedStories[s.id]);
+  const toggleAllStories = () => {
+    setCollapsedStories(c => {
+      const n = { ...c };
+      if (allCollapsed) data.stories.forEach(s => delete n[s.id]);
+      else data.stories.forEach(s => { n[s.id] = true; });
+      return n;
+    });
+  };
 
   // Search
   const searchResults = useMemo(() => {
@@ -777,7 +825,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid grid-cols-2 gap-2">
                                       {colTasks.map(task => (
                                         <div key={task.id}>
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} />
                                         </div>
                                       ))}
                                     </div>
@@ -808,6 +856,39 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Collapse/expand all toolbar */}
+            {!isMobile && data.stories.length > 1 && (
+              <div className="sticky left-0 flex items-center mb-1 px-1 w-fit z-[5]">
+                <button
+                  onClick={toggleAllStories}
+                  className="text-xs text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg bg-white/70 hover:bg-white backdrop-blur-sm border border-gray-100 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {allCollapsed
+                      ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />}
+                  </svg>
+                  {allCollapsed ? 'Expandera alla' : 'Fäll ihop alla'}
+                </button>
+              </div>
+            )}
+
+            {/* Empty board state */}
+            {!isMobile && data.stories.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-5xl mb-3">🗂️</div>
+                <p className="text-base font-semibold text-gray-700">Inga stories ännu</p>
+                <p className="text-sm text-gray-400 mt-1 mb-4 max-w-xs">Skapa din första story för att börja organisera dina uppgifter på tavlan.</p>
+                <button
+                  onClick={() => setStoryModal({ open: true, story: null })}
+                  className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-xl hover:bg-indigo-600 transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                  Skapa story
+                </button>
               </div>
             )}
 
@@ -892,7 +973,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                                       {colTasks.map(task => (
                                         <div key={task.id} className="min-w-0">
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
                                         </div>
                                       ))}
                                     </div>
@@ -909,6 +990,20 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                 </div>
               );
             })}
+
+            {/* Filter no-results state */}
+            {!isMobile && data.stories.length > 0 && hasActiveFilters && filteredTasks.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="text-4xl mb-2">🔍</div>
+                <p className="text-sm font-semibold text-gray-600">Inga uppgifter matchar filtret</p>
+                <button
+                  onClick={() => setFilters({ status: '', priority: '', labels: [] })}
+                  className="mt-3 text-xs text-indigo-600 font-medium hover:underline"
+                >
+                  Rensa filter
+                </button>
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -1026,6 +1121,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
               }),
             }));
           }}
+          onSetPriority={(taskId, priority) => {
+            updateBoard(d => ({
+              ...d,
+              tasks: d.tasks.map(t => t.id === taskId ? { ...t, priority } : t),
+            }));
+          }}
           onMoveToColumn={(taskId, col) => {
             const lastCol = data.columns[data.columns.length - 1];
             const task = data.tasks.find(t => t.id === taskId);
@@ -1088,9 +1189,11 @@ function AppShell() {
 
   return (
     <GamificationProvider enabled={gamificationEnabled} user={user}>
-      <DragProvider>
-        <AppInner gamificationEnabled={gamificationEnabled} onToggleGamification={toggleGamification} />
-      </DragProvider>
+      <ToastProvider>
+        <DragProvider>
+          <AppInner gamificationEnabled={gamificationEnabled} onToggleGamification={toggleGamification} />
+        </DragProvider>
+      </ToastProvider>
     </GamificationProvider>
   );
 }

@@ -17,8 +17,9 @@ export default function DragProvider({ children }) {
     else dropZonesRef.current.delete(key);
   }, []);
 
-  // On mobile, we delay drag start until the finger moves enough (to avoid blocking taps/scrolls)
+  // On mobile, we use a long-press to start the drag (so normal scrolling is not hijacked)
   const pendingDragRef = useRef(null);
+  const longPressTimerRef = useRef(null);
 
   const startDrag = useCallback((e, type, id, data) => {
     // Prevent starting drag on checkbox clicks
@@ -29,9 +30,22 @@ export default function DragProvider({ children }) {
     const title = e.currentTarget.textContent?.substring(0, 40) || '';
 
     if (e.type === 'touchstart') {
-      // On touch, defer actual drag start until movement threshold is met
+      // On touch, arm a long-press: drag begins after holding still ~250ms.
+      // This lets the user scroll the board normally without triggering a drag.
       pendingDragRef.current = { type, id, data, title, startX: clientX, startY: clientY, w: rect.width, h: rect.height };
       startPosRef.current = { x: clientX, y: clientY };
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = setTimeout(() => {
+        const pending = pendingDragRef.current;
+        if (pending && !isDraggingRef.current) {
+          isDraggingRef.current = true;
+          pendingDragRef.current = null;
+          if (navigator.vibrate) { try { navigator.vibrate(15); } catch { /* ignore */ } }
+          setGhostSize({ w: pending.w, h: pending.h });
+          setGhostPos({ x: pending.startX, y: pending.startY });
+          setDragging({ type: pending.type, id: pending.id, data: pending.data, title: pending.title });
+        }
+      }, 250);
     } else {
       e.preventDefault();
       startPosRef.current = { x: clientX, y: clientY };
@@ -50,20 +64,30 @@ export default function DragProvider({ children }) {
       return { x: e.clientX, y: e.clientY };
     };
 
+    // Auto-scroll the nearest vertically-scrollable container when dragging near an edge
+    const autoScroll = (x, y) => {
+      const EDGE = 80, SPEED = 12;
+      let el = document.elementFromPoint(Math.min(Math.max(x, 1), window.innerWidth - 1), Math.min(Math.max(y, 1), window.innerHeight - 1));
+      while (el && el !== document.body) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+          const r = el.getBoundingClientRect();
+          if (y < r.top + EDGE && el.scrollTop > 0) { el.scrollTop -= SPEED; return; }
+          if (y > r.bottom - EDGE && el.scrollTop + el.clientHeight < el.scrollHeight) { el.scrollTop += SPEED; return; }
+        }
+        el = el.parentElement;
+      }
+    };
+
     const onTouchMove = (e) => {
       const pending = pendingDragRef.current;
       if (pending && !isDraggingRef.current) {
+        // Before long-press fires: if the finger moves much, treat it as a scroll and cancel.
         const { x, y } = getXY(e);
         const dx = x - pending.startX;
         const dy = y - pending.startY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 10) {
-          // Threshold met — start the actual drag
-          if (e.cancelable) e.preventDefault();
-          isDraggingRef.current = true;
-          setGhostSize({ w: pending.w, h: pending.h });
-          setGhostPos({ x, y });
-          setDragging({ type: pending.type, id: pending.id, data: pending.data, title: pending.title });
+        if (Math.sqrt(dx * dx + dy * dy) > 10) {
+          clearTimeout(longPressTimerRef.current);
           pendingDragRef.current = null;
         }
         return;
@@ -73,6 +97,7 @@ export default function DragProvider({ children }) {
       if (e.cancelable) e.preventDefault();
       const { x, y } = getXY(e);
       setGhostPos({ x, y });
+      autoScroll(x, y);
       dropZonesRef.current.forEach(({ el }) => {
         const r = el.getBoundingClientRect();
         if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
@@ -84,7 +109,8 @@ export default function DragProvider({ children }) {
     };
 
     const onTouchEnd = (e) => {
-      // Cancel pending drag if finger released before threshold
+      clearTimeout(longPressTimerRef.current);
+      // Cancel pending drag if finger released before long-press armed
       if (pendingDragRef.current) {
         pendingDragRef.current = null;
         return;
@@ -109,11 +135,21 @@ export default function DragProvider({ children }) {
       }
     };
 
+    const onTouchCancel = () => {
+      clearTimeout(longPressTimerRef.current);
+      pendingDragRef.current = null;
+      if (isDraggingRef.current) { isDraggingRef.current = false; setDragging(null); }
+      dropZonesRef.current.forEach(({ el }) => el.classList.remove('drag-over'));
+    };
+
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchCancel);
     return () => {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchCancel);
+      clearTimeout(longPressTimerRef.current);
     };
   }, [dragging]);
 
@@ -181,14 +217,14 @@ export default function DragProvider({ children }) {
       {children}
       {dragging && (
         <div
-          className="fixed pointer-events-none z-[100] opacity-75 rotate-2"
+          className="fixed pointer-events-none z-[100] rotate-3 scale-105 transition-transform"
           style={{
             left: ghostPos.x - ghostSize.w / 2,
             top: ghostPos.y - 20,
             width: ghostSize.w,
           }}
         >
-          <div className="bg-yellow-200 px-3 py-2 rounded shadow-lg text-sm font-semibold text-gray-800 truncate">
+          <div className="bg-yellow-200 px-3 py-2 rounded-lg shadow-2xl ring-2 ring-indigo-400/40 text-sm font-semibold text-gray-800 truncate opacity-95">
             {dragging.title}
           </div>
         </div>

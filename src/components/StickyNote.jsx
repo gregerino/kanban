@@ -1,7 +1,22 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { PRIORITY_FLAG_COLORS } from '../utils/constants';
 import { today } from '../utils/helpers';
 import { useDrag } from './DragContext';
+
+// Returns urgency info for a deadline: { label, cls } or null
+function deadlineInfo(deadline, status) {
+  if (!deadline) return null;
+  const d = new Date(deadline + 'T00:00:00');
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((d - t) / 86400000);
+  const done = status === 'Done';
+  if (done) return { label: deadline.slice(5), cls: 'text-gray-400', overdue: false };
+  if (diffDays < 0) return { label: 'Försenad', cls: 'text-red-600 font-semibold', overdue: true };
+  if (diffDays === 0) return { label: 'Idag', cls: 'text-orange-600 font-semibold', overdue: false };
+  if (diffDays === 1) return { label: 'Imorgon', cls: 'text-amber-600 font-medium', overdue: false };
+  if (diffDays <= 3) return { label: deadline.slice(5), cls: 'text-amber-600', overdue: false };
+  return { label: deadline.slice(5), cls: 'text-gray-500', overdue: false };
+}
 
 function hexToVividGradient(hex) {
   if (!hex || hex.startsWith('sticky-') || hex.startsWith('bg-')) return null;
@@ -32,8 +47,8 @@ function PriorityFlag({ priority }) {
   );
 }
 
-export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, deadlineEnabled }) {
-  const isOverdue = task.deadline && task.deadline < today() && task.status !== 'Done';
+export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, onRename, deadlineEnabled }) {
+  const dl = deadlineEnabled ? deadlineInfo(task.deadline, task.status) : null;
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
   const colorSource = storyColor || task.color || '#fde68a';
@@ -42,14 +57,28 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
 
   const checklist = task.checklist || [];
   const checkTotal = checklist.length;
+  const checkDone = checklist.filter(c => c.done).length;
   const hasFiles = (task.files || []).length > 0;
   const hasNotes = !!(task.notes && task.notes.trim());
 
   const { startDrag, dragging } = useDrag();
   const pointerStartRef = useRef(null);
 
+  // Inline title editing
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.title);
+  const inputRef = useRef(null);
+  useEffect(() => { if (editing) { setDraft(task.title); requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.select(); }); } }, [editing, task.title]);
+
+  const commitRename = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== task.title) onRename?.(task.id, trimmed);
+    setEditing(false);
+  };
+
   const handlePointerDown = (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (editing) return;
     // Skip pointer events on touch devices — handled by onTouchStart
     if (e.pointerType === 'touch') return;
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
@@ -57,13 +86,14 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
   };
 
   const handleTouchStart = (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (editing) return;
     startDrag(e, 'task', task.id, { taskId: task.id });
   };
 
   const handleClick = (e) => {
     // Only open if we didn't drag
-    if (dragging) return;
+    if (dragging || editing) return;
     onOpen(task);
   };
 
@@ -90,10 +120,39 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
           ))}
         </div>
       )}
-      <p className="text-sm font-semibold text-gray-900 leading-snug drop-shadow-[0_0_1px_rgba(255,255,255,0.5)] break-words">{task.title}</p>
+      {editing ? (
+        <textarea
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+          onBlur={commitRename}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitRename(); }
+            if (e.key === 'Escape') { e.preventDefault(); setEditing(false); }
+          }}
+          rows={2}
+          className="w-full text-sm font-semibold text-gray-900 leading-snug bg-white/80 rounded-md px-1.5 py-1 resize-none outline-none ring-2 ring-indigo-400"
+        />
+      ) : (
+        <p
+          onDoubleClick={(e) => { e.stopPropagation(); if (onRename) setEditing(true); }}
+          title={onRename ? 'Dubbelklicka för att byta namn' : undefined}
+          className="text-sm font-semibold text-gray-900 leading-snug drop-shadow-[0_0_1px_rgba(255,255,255,0.5)] break-words"
+        >
+          {task.title}
+        </p>
+      )}
 
       {checkTotal > 0 && (
         <div className="mt-2 space-y-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] font-semibold text-gray-500 shrink-0">{checkDone}/{checkTotal}</span>
+            <div className="h-1.5 flex-1 bg-black/10 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${checkTotal ? (checkDone / checkTotal) * 100 : 0}%` }} />
+            </div>
+          </div>
           {checklist.map(item => (
             <div key={item.id} className="flex items-center gap-1.5 cursor-pointer" onClick={e => { e.stopPropagation(); onToggleCheck?.(task.id, item.id); }}>
               <div className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${item.done ? 'bg-green-500 border-green-500' : 'border-gray-400 bg-white/50'}`}>
@@ -128,16 +187,10 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
               {task.comments.length}
             </span>
           )}
-          {task.deadline && isOverdue && (
-            <span className="text-xs text-red-600 font-medium flex items-center gap-0.5">
+          {dl && (
+            <span className={`text-xs flex items-center gap-0.5 ${dl.cls}`}>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              Försenad
-            </span>
-          )}
-          {task.deadline && !isOverdue && (
-            <span className="text-xs text-gray-500 flex items-center gap-0.5">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              {task.deadline.slice(5)}
+              {dl.label}
             </span>
           )}
         </div>
