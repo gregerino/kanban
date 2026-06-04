@@ -851,7 +851,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid grid-cols-2 gap-2">
                                       {colTasks.map(task => (
                                         <div key={task.id}>
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} blocked={isTaskBlocked(task, data.tasks, data.columns)} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} blockedBy={blockingTasks(task, data.tasks, data.columns)} />
                                         </div>
                                       ))}
                                     </div>
@@ -999,7 +999,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                                       {colTasks.map(task => (
                                         <div key={task.id} className="min-w-0">
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} blocked={isTaskBlocked(task, data.tasks, data.columns)} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} blockedBy={blockingTasks(task, data.tasks, data.columns)} />
                                         </div>
                                       ))}
                                     </div>

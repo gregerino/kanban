@@ -47,7 +47,8 @@ function PriorityFlag({ priority }) {
   );
 }
 
-export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, onRename, deadlineEnabled, blocked = false }) {
+export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, onRename, deadlineEnabled, blockedBy = [] }) {
+  const blocked = blockedBy.length > 0;
   const dl = deadlineEnabled ? deadlineInfo(task.deadline, task.status) : null;
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
@@ -145,29 +146,12 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
         </p>
       )}
 
-      {checkTotal > 0 && (
-        <div className="mt-2 space-y-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[10px] font-semibold text-gray-500 shrink-0">{checkDone}/{checkTotal}</span>
-            <div className="h-1.5 flex-1 bg-black/10 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${checkTotal ? (checkDone / checkTotal) * 100 : 0}%` }} />
-            </div>
-          </div>
-          {checklist.map(item => (
-            <div key={item.id} className="flex items-center gap-1.5 cursor-pointer" onClick={e => { e.stopPropagation(); onToggleCheck?.(task.id, item.id); }}>
-              <div className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${item.done ? 'bg-green-500 border-green-500' : 'border-gray-400 bg-white/50'}`}>
-                {item.done && <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>}
-              </div>
-              <span className={`text-[11px] leading-tight ${item.done ? 'line-through text-gray-400' : 'text-gray-600'}`}>{item.text}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {blocked && (
-        <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100/80 border border-amber-300/60" title="Blockerad av ett oavslutat beroende">
-          <svg className="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-          <span className="text-[9px] font-bold text-amber-700">Blockerad</span>
+        <div className="mt-2 flex items-start gap-1 px-1.5 py-1 rounded-md bg-amber-100/80 border border-amber-300/60" title={`Blockerad av: ${blockedBy.map(b => b.title).join(', ')}`}>
+          <svg className="w-3 h-3 text-amber-600 shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <span className="text-[9px] font-semibold text-amber-700 leading-snug min-w-0">
+            Väntar på: {blockedBy[0].title}{blockedBy.length > 1 ? ` +${blockedBy.length - 1}` : ''}
+          </span>
         </div>
       )}
 
@@ -177,6 +161,12 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
         </div>
         <div className="flex items-center gap-2">
           {task.priority === 'Legendary' && <PriorityFlag priority={task.priority} />}
+          {checkTotal > 0 && (
+            <span className={`text-xs flex items-center gap-0.5 ${checkDone === checkTotal ? 'text-green-600' : 'text-gray-500'}`} title={`Checklista: ${checkDone}/${checkTotal} klara`}>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/></svg>
+              <span className="text-[10px] font-semibold">{checkDone}/{checkTotal}</span>
+            </span>
+          )}
           {hasNotes && (
             <span className="text-xs text-gray-500 flex items-center" title="Har anteckningar">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
