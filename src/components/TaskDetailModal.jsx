@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { PRIORITIES } from '../utils/constants';
-import { uid } from '../utils/helpers';
+import { uid, dependsOnTransitively, blockingTasks } from '../utils/helpers';
 
 const PRESET_COLORS = ['#fde68a', '#fdba74', '#93c5fd', '#86efac', '#fda4af', '#c4b5fd', '#f87171', '#818cf8', '#2dd4bf', '#a3e635'];
 const MAX_FILES_SIZE = 25 * 1024 * 1024; // 25MB
@@ -81,10 +81,12 @@ function NotesField({ value, onChange }) {
   );
 }
 
-export default function TaskDetailModal({ task, open, onClose, allLabels, columns, customColors = [], onSave, onDelete }) {
+export default function TaskDetailModal({ task, open, onClose, allLabels, columns, allTasks = [], stories = [], customColors = [], onSave, onDelete }) {
   const [form, setForm] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [newCheckItem, setNewCheckItem] = useState('');
+  const [depPickerOpen, setDepPickerOpen] = useState(false);
+  const [depSearch, setDepSearch] = useState('');
   const [fileSizeError, setFileSizeError] = useState('');
   const checkInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -183,6 +185,23 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
 
   const save = () => { onSave(formRef.current || form); onClose(); };
   const handleClose = () => { onSave(formRef.current || form); onClose(); };
+
+  // Dependencies
+  const lastCol = columns[columns.length - 1];
+  const deps = form?.dependsOn || [];
+  const depTasks = deps.map(id => allTasks.find(t => t.id === id)).filter(Boolean);
+  const unmetDeps = depTasks.filter(t => t.status !== lastCol);
+  const storyName = (sid) => stories.find(s => s.id === sid)?.title || '';
+  const toggleDep = (depId) => {
+    const has = deps.includes(depId);
+    update('dependsOn', has ? deps.filter(x => x !== depId) : [...deps, depId]);
+  };
+  // Candidate tasks for adding as a dependency (exclude self + anything that would cycle)
+  const depCandidates = allTasks.filter(t =>
+    t.id !== form?.id &&
+    !dependsOnTransitively(t.id, form?.id, allTasks) &&
+    (depSearch.trim() === '' || t.title.toLowerCase().includes(depSearch.toLowerCase()))
+  );
 
   const checkDone = form.checklist.filter(c => c.done).length;
   const checkTotal = form.checklist.length;
@@ -336,6 +355,68 @@ export default function TaskDetailModal({ task, open, onClose, allLabels, column
               <input type="date" value={form.deadline} onChange={e => update('deadline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-300" />
             )}
           </div>
+          {/* Dependencies */}
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-gray-500">Beroenden</label>
+              <button onClick={() => { setDepPickerOpen(o => !o); setDepSearch(''); }} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                {depPickerOpen ? 'Klar' : '+ Lägg till'}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mb-2">Uppgifter som måste vara klara innan denna kan flyttas framåt.</p>
+
+            {depTasks.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {depTasks.map(dt => {
+                  const done = dt.status === lastCol;
+                  return (
+                    <div key={dt.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs ${done ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                      <span className="shrink-0">{done ? '✅' : '🔒'}</span>
+                      <span className={`flex-1 min-w-0 truncate ${done ? 'text-green-700 line-through' : 'text-gray-700'}`} title={dt.title}>{dt.title}</span>
+                      <button onClick={() => toggleDep(dt.id)} className="shrink-0 text-gray-400 hover:text-red-500" title="Ta bort beroende">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {depPickerOpen && (
+              <div className="border border-gray-200 rounded-lg p-2 mb-1">
+                <input
+                  value={depSearch}
+                  onChange={e => setDepSearch(e.target.value)}
+                  placeholder="Sök uppgift..."
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs outline-none focus:ring-2 focus:ring-indigo-300 mb-2"
+                />
+                <div className="max-h-44 overflow-y-auto space-y-0.5">
+                  {depCandidates.length === 0 && <p className="text-[11px] text-gray-400 px-1 py-2">Inga uppgifter att välja.</p>}
+                  {depCandidates.map(t => {
+                    const selected = deps.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => toggleDep(t.id)}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs transition-colors ${selected ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300'}`}>
+                          {selected && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>}
+                        </span>
+                        <span className="flex-1 min-w-0 truncate text-gray-700">{t.title}</span>
+                        {storyName(t.storyId) && <span className="text-[9px] text-gray-400 shrink-0 truncate max-w-[70px]">{storyName(t.storyId)}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {unmetDeps.length > 0 && (
+              <p className="text-[11px] text-amber-600 font-medium mt-1">🔒 Blockerad tills {unmetDeps.length} beroende{unmetDeps.length > 1 ? 'n' : ''} är klara.</p>
+            )}
+          </div>
+
           <div className="pt-4 border-t border-gray-100 space-y-2">
             <button onClick={save} className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">Spara ändringar</button>
             <button onClick={() => { onDelete(form.id); onClose(); }} className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors">Ta bort uppgift</button>

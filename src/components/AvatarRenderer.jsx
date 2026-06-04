@@ -736,6 +736,66 @@ const WEAPON_SPRITES_64 = {
     p.push([2, 13, '#ffffff'], [2, 14, '#ffffff']); // sparkle
     return p;
   },
+  eq_battle_axe: () => {
+    const p = [];
+    const steel = '#cbd5e1', steelSh = '#9ca3af', steelHi = '#eef2f7';
+    for (let r = 16; r <= 50; r++) { p.push([r, 13, '#5a3825'], [r, 14, '#78350f']); }
+    for (let r = 15; r <= 25; r++) {
+      const spread = 5 - Math.abs(r - 20);
+      if (spread < 0) continue;
+      for (let c = 12 - spread; c <= 12; c++) p.push([r, c, c <= 12 - spread + 1 ? steelSh : steel]);
+      for (let c = 15; c <= 15 + spread; c++) p.push([r, c, c >= 15 + spread - 1 ? steelSh : steel]);
+    }
+    p.push([20, 7, steelHi], [20, 20, steelHi]);
+    p.push([51, 13, '#ffd700'], [51, 14, '#ffd700']);
+    return p;
+  },
+  eq_war_hammer: () => {
+    const p = [];
+    for (let r = 16; r <= 50; r++) { p.push([r, 13, '#5a3825'], [r, 14, '#78350f']); }
+    for (let r = 13; r <= 21; r++) for (let c = 9; c <= 18; c++) {
+      const edge = (r === 13 || r === 21 || c === 9 || c === 18);
+      p.push([r, c, edge ? '#4b5563' : ((r + c) % 2 ? '#9ca3af' : '#6b7280')]);
+    }
+    for (let c = 9; c <= 18; c++) p.push([17, c, '#d1d5db']);
+    return p;
+  },
+  eq_crystal_wand: () => {
+    const p = [];
+    for (let r = 14; r <= 50; r++) p.push([r, 13, '#92400e'], [r, 14, '#b45309']);
+    const gem = '#67e8f9', gemHi = '#cffafe', gemSh = '#0891b2';
+    p.push([6, 13, gemHi], [7, 12, gem], [7, 13, gemHi], [7, 14, gem], [8, 11, gem], [8, 12, gem], [8, 13, gem], [8, 14, gem], [8, 15, gem],
+           [9, 12, gem], [9, 13, gem], [9, 14, gem], [10, 12, gemSh], [10, 13, gem], [10, 14, gemSh], [11, 13, gemSh], [12, 13, gemSh]);
+    return p;
+  },
+  eq_katana: () => {
+    const p = [];
+    for (let r = 12; r <= 42; r++) p.push([r, 14, '#e5e7eb'], [r, 13, '#cbd5e1']);
+    p.push([11, 14, '#f3f4f6']);
+    for (let c = 11; c <= 16; c++) p.push([43, c, '#1f2937']);
+    p.push([43, 13, '#ffd700'], [43, 14, '#ffd700']);
+    for (let r = 44; r <= 49; r++) p.push([r, 13, (r % 2 ? '#7f1d1d' : '#111827')], [r, 14, (r % 2 ? '#111827' : '#7f1d1d')]);
+    return p;
+  },
+  eq_crossbow: () => {
+    const p = [];
+    const wood = '#78350f', woodHi = '#92400e', steel = '#9ca3af';
+    for (let r = 30; r <= 48; r++) p.push([r, 13, wood], [r, 14, woodHi]);
+    for (let c = 8; c <= 19; c++) p.push([30, c, steel]);
+    p.push([29, 8, steel], [31, 8, steel], [29, 19, steel], [31, 19, steel]);
+    for (let c = 9; c <= 18; c++) p.push([28, c, '#e5e7eb']);
+    for (let r = 24; r <= 30; r++) p.push([r, 13, '#cbd5e1']);
+    p.push([23, 13, '#94a3b8']);
+    return p;
+  },
+  eq_royal_scepter: () => {
+    const p = [];
+    for (let r = 12; r <= 50; r++) p.push([r, 13, '#a16207'], [r, 14, '#ca8a04']);
+    const g = '#facc15', gh = '#fde68a', gs = '#a16207';
+    p.push([6, 13, gh], [7, 12, g], [7, 13, gh], [7, 14, g], [8, 12, g], [8, 14, g], [9, 12, gs], [9, 13, g], [9, 14, gs], [10, 13, gs]);
+    p.push([8, 13, '#ef4444']);
+    return p;
+  },
 };
 
 const HEAD_SPRITES_64 = {
@@ -800,6 +860,38 @@ const HEAD_SPRITES_64 = {
     for (let c = 34; c <= 38; c++) p.push([13, c, '#1f2937']);
     return p;
   },
+  eq_horned_helm: () => {
+    const p = [];
+    const base = '#4b5563', hi = '#6b7280';
+    for (let c = 21; c <= 42; c++) { p.push([4, c, hi]); p.push([5, c, base]); p.push([6, c, base]); p.push([7, c, base]); p.push([8, c, base]); }
+    for (let c = 24; c <= 39; c++) p.push([3, c, hi]);
+    p.push([3, 20, '#e5e7eb'], [2, 19, '#e5e7eb'], [1, 19, '#f3f4f6'], [0, 18, '#f3f4f6']);
+    p.push([3, 43, '#e5e7eb'], [2, 44, '#e5e7eb'], [1, 44, '#f3f4f6'], [0, 45, '#f3f4f6']);
+    for (let c = 25; c <= 29; c++) p.push([13, c, '#1f2937']);
+    for (let c = 34; c <= 38; c++) p.push([13, c, '#1f2937']);
+    p.push([10, 31, base], [11, 31, base], [12, 31, base], [13, 31, base]);
+    return p;
+  },
+  eq_ranger_cap: () => {
+    const p = [];
+    const g = '#15803d', gh = '#22c55e', gs = '#14532d';
+    for (let c = 22; c <= 41; c++) p.push([6, c, g]);
+    for (let c = 24; c <= 39; c++) p.push([5, c, g]);
+    for (let c = 27; c <= 36; c++) p.push([4, c, gh]);
+    for (let c = 19; c <= 44; c++) p.push([7, c, gs]);
+    p.push([3, 40, '#ef4444'], [2, 41, '#f87171'], [1, 42, '#fca5a5'], [0, 43, '#fecaca']);
+    return p;
+  },
+  eq_dragon_helm: () => {
+    const p = [];
+    const base = '#7f1d1d', hi = '#991b1b';
+    for (let c = 21; c <= 42; c++) { p.push([4, c, hi]); p.push([5, c, base]); p.push([6, c, base]); p.push([7, c, base]); p.push([8, c, base]); }
+    for (let c = 24; c <= 39; c++) p.push([3, c, hi]);
+    for (let r = 0; r <= 4; r++) { p.push([r, 31, '#f59e0b']); p.push([r, 32, '#fbbf24']); }
+    for (let c = 25; c <= 29; c++) p.push([13, c, '#fbbf24']);
+    for (let c = 34; c <= 38; c++) p.push([13, c, '#fbbf24']);
+    return p;
+  },
 };
 
 const BACK_SPRITES_64 = {
@@ -842,6 +934,35 @@ const BACK_SPRITES_64 = {
     for (let r = 12; r <= 50; r++) p.push([r, 52, '#78350f'], [r, 53, '#5a3825']);
     for (let r = 12; r <= 26; r++) for (let c = 48; c <= 58; c++) p.push([r, c, '#4338ca']);
     p.push([19, 52, '#ffd700'], [19, 53, '#ffd700'], [20, 52, '#ffd700'], [20, 53, '#ffd700']);
+    return p;
+  },
+  eq_angel_wings: () => {
+    const p = [];
+    const w = '#f8fafc', sh = '#cbd5e1';
+    for (let r = 24; r <= 40; r++) {
+      const spread = Math.max(0, 8 - Math.abs(r - 32));
+      for (let c = 16 - spread; c < 16; c++) p.push([r, c, c < 16 - spread + 1 ? sh : w]);
+      for (let c = 48; c <= 48 + spread; c++) p.push([r, c, c > 48 + spread - 1 ? sh : w]);
+    }
+    return p;
+  },
+  eq_demon_wings: () => {
+    const p = [];
+    const mem = '#6b21a8', edge = '#1f2937';
+    for (let r = 24; r <= 42; r++) {
+      const spread = Math.max(0, 9 - Math.abs(r - 33));
+      for (let c = 15 - spread; c < 15; c++) p.push([r, c, c === 15 - spread ? edge : mem]);
+      for (let c = 49; c <= 49 + spread; c++) p.push([r, c, c === 49 + spread ? edge : mem]);
+    }
+    return p;
+  },
+  eq_royal_cape: () => {
+    const p = [];
+    for (let r = 28; r <= 54; r++) {
+      p.push([r, 13, '#581c87'], [r, 14, '#6b21a8'], [r, 15, '#7e22ce'], [r, 16, '#6b21a8']);
+      p.push([r, 47, '#6b21a8'], [r, 48, '#7e22ce'], [r, 49, '#6b21a8'], [r, 50, '#581c87']);
+    }
+    for (let c = 20; c <= 43; c++) p.push([28, c, '#facc15']);
     return p;
   },
 };
@@ -980,6 +1101,21 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
     const backId = avatar.equippedBack || sg.back || null;
 
     if (showBackground) drawBackground64(ctx);
+
+    // Soft elliptical ground shadow to anchor the character
+    if (showBackground) {
+      const cx = 31.5, cy = 60.5, rx = 11, ry = 2.6;
+      for (let r = 57; r <= 63; r++) {
+        for (let c = 19; c <= 44; c++) {
+          const dx = (c - cx) / rx, dy = (r - cy) / ry;
+          const d = dx * dx + dy * dy;
+          if (d <= 1) {
+            ctx.fillStyle = `rgba(0,0,0,${(0.24 * (1 - d * 0.55)).toFixed(3)})`;
+            ctx.fillRect(c, r, 1, 1);
+          }
+        }
+      }
+    }
 
     const layers = [];
 

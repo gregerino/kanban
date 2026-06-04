@@ -47,7 +47,7 @@ function PriorityFlag({ priority }) {
   );
 }
 
-export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, onRename, deadlineEnabled }) {
+export default function StickyNote({ task, labels, storyColor, onOpen, onToggleCheck, onContextMenu, onRename, deadlineEnabled, blocked = false }) {
   const dl = deadlineEnabled ? deadlineInfo(task.deadline, task.status) : null;
   const taskLabels = labels.filter(l => task.labels?.includes(l.id));
 
@@ -161,6 +161,13 @@ export default function StickyNote({ task, labels, storyColor, onOpen, onToggleC
               <span className={`text-[11px] leading-tight ${item.done ? 'line-through text-gray-400' : 'text-gray-600'}`}>{item.text}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {blocked && (
+        <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100/80 border border-amber-300/60" title="Blockerad av ett oavslutat beroende">
+          <svg className="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <span className="text-[9px] font-bold text-amber-700">Blockerad</span>
         </div>
       )}
 

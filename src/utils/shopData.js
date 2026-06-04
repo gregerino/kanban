@@ -146,9 +146,25 @@ export const SHOP_ITEMS = [
   { id: 'eq_void_armor',       name: 'Tomrumsrustning',    desc: 'Rustning • +10% XP medan utrustad', category: 'armor', rarity: 'mythic',    cost: 4000, icon: '🟣', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.10 } },
   { id: 'eq_celestial_plate',  name: 'Himmelsk plåt',      desc: 'Rustning • +12% XP medan utrustad', category: 'armor', rarity: 'mythic',    cost: 5000, icon: '✨', slot: 'armor', armorPerk: { type: 'xp_boost', value: 0.12 } },
 
-  // ── Equipment ──
+  // ── Equipment: Weapons ──
   { id: 'eq_wooden_sword',  name: 'Träsvärd',          desc: 'Ett enkelt nybörjarvapen',         category: 'equipment', rarity: 'common',    cost: 100,  icon: '🗡️', slot: 'weapon' },
+  { id: 'eq_battle_axe',    name: 'Stridsyxa',         desc: 'Tung dubbelbladad yxa',            category: 'equipment', rarity: 'rare',      cost: 550,  icon: '🪓', slot: 'weapon' },
+  { id: 'eq_war_hammer',    name: 'Krigshammare',      desc: 'Krossande slagvapen',              category: 'equipment', rarity: 'rare',      cost: 600,  icon: '🔨', slot: 'weapon' },
+  { id: 'eq_katana',        name: 'Katana',            desc: 'Slipad enäggad klinga',            category: 'equipment', rarity: 'epic',      cost: 1300, icon: '🗡️', slot: 'weapon' },
+  { id: 'eq_crossbow',      name: 'Armborst',          desc: 'Precist avståndsvapen',            category: 'equipment', rarity: 'rare',      cost: 700,  icon: '🏹', slot: 'weapon' },
+  { id: 'eq_crystal_wand',  name: 'Kristallstav',      desc: 'Pulserande arkan kristall',        category: 'equipment', rarity: 'epic',      cost: 1400, icon: '🔮', slot: 'weapon' },
+  { id: 'eq_royal_scepter', name: 'Kunglig spira',     desc: 'Symbol för makt och guld',         category: 'equipment', rarity: 'legendary', cost: 2600, icon: '👑', slot: 'weapon' },
+
+  // ── Equipment: Heads ──
+  { id: 'eq_horned_helm',   name: 'Hornhjälm',         desc: 'Barbarisk hjälm med horn',         category: 'equipment', rarity: 'rare',      cost: 650,  icon: '🐮', slot: 'head' },
+  { id: 'eq_ranger_cap',    name: 'Spejarhatt',        desc: 'Fjäderprydd skogshatt',            category: 'equipment', rarity: 'common',    cost: 300,  icon: '🎩', slot: 'head' },
+  { id: 'eq_dragon_helm',   name: 'Drakhjälm',         desc: 'Eldögd drakhjälm med kam',         category: 'equipment', rarity: 'legendary', cost: 2400, icon: '🐲', slot: 'head' },
+
+  // ── Equipment: Capes & Wings ──
   { id: 'eq_leather_cloak', name: 'Lädermantel',       desc: 'Enkel resemantel',                 category: 'equipment', rarity: 'common',    cost: 150,  icon: '🧥', slot: 'back' },
+  { id: 'eq_royal_cape',    name: 'Kunglig mantel',    desc: 'Purpurmantel med guldkrage',       category: 'equipment', rarity: 'epic',      cost: 1100, icon: '🧣', slot: 'back' },
+  { id: 'eq_angel_wings',   name: 'Änglavingar',       desc: 'Lysande fjäderbeklädda vingar',    category: 'equipment', rarity: 'legendary', cost: 3000, icon: '🪽', slot: 'back' },
+  { id: 'eq_demon_wings',   name: 'Demonvingar',       desc: 'Mörka läderartade vingar',         category: 'equipment', rarity: 'mythic',    cost: 4500, icon: '🦇', slot: 'back' },
   { id: 'eq_wizard_hat',    name: 'Trollkarlshatt',    desc: 'Magisk huvudbonad',                category: 'equipment', rarity: 'rare',      cost: 400,  icon: '🎩', slot: 'head' },
   { id: 'eq_fire_sword',    name: 'Eldklinga',         desc: 'Svärd höljet i eld',               category: 'equipment', rarity: 'epic',      cost: 1200, icon: '🔥', slot: 'weapon' },
   { id: 'eq_dragon_cloak',  name: 'Drake-mantel',      desc: 'Legendarisk drakmantell',          category: 'equipment', rarity: 'legendary', cost: 2000, icon: '🐲', slot: 'back' },

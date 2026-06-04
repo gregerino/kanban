@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { loadBoards, loadActiveId, saveBoards, saveActiveId, createEmptyBoard } from './utils/storage';
 import useCloudSync from './utils/useCloudSync';
-import { uid } from './utils/helpers';
+import { uid, isTaskBlocked, blockingTasks } from './utils/helpers';
 import StickyNote from './components/StickyNote';
 import StoryCard from './components/StoryCard';
 import TaskDetailModal from './components/TaskDetailModal';
@@ -102,6 +102,8 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
 
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const updateBoard = useCallback((fn) => setBoards(bs => bs.map(b => b.id === activeIdRef.current ? fn(b) : b)), [setBoards]);
 
   // Board management
@@ -310,21 +312,30 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         }));
       } else if (drag.type === 'task') {
         const taskId = drag.id;
-        const lastCol = data.columns[data.columns.length - 1];
-        const task = data.tasks.find(t => t.id === taskId);
+        const cur = dataRef.current;
+        const lastCol = cur.columns[cur.columns.length - 1];
+        const task = cur.tasks.find(t => t.id === taskId);
+        const fromIdxPre = task ? cur.columns.indexOf(task.status) : -1;
+        const toIdxPre = cur.columns.indexOf(status);
+        // Block forward moves while dependencies are unmet
+        if (task && toIdxPre > fromIdxPre && isTaskBlocked(task, cur.tasks, cur.columns)) {
+          const blockers = blockingTasks(task, cur.tasks, cur.columns);
+          showToast(`🔒 Blockerad av: ${blockers.map(b => b.title).join(', ')}`, { type: 'error', duration: 3500 });
+          return;
+        }
         updateBoard(d => ({
           ...d,
           tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
         }));
         // Gamification: XP only when moving forward (higher column index)
         if (task && status !== task.status) {
-          const fromIdx = data.columns.indexOf(task.status);
-          const toIdx = data.columns.indexOf(status);
+          const fromIdx = cur.columns.indexOf(task.status);
+          const toIdx = cur.columns.indexOf(status);
           if (toIdx > fromIdx) {
             gamDispatch('TASK_MOVED');
             if (status === lastCol && task.status !== lastCol) {
               gamDispatch('TASK_COMPLETED', task);
-              const storyTasks = data.tasks.filter(t => t.storyId === storyId);
+              const storyTasks = cur.tasks.filter(t => t.storyId === storyId);
               const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
               if (allDone && storyTasks.length > 0) gamDispatch('STORY_COMPLETED');
             }
@@ -840,7 +851,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid grid-cols-2 gap-2">
                                       {colTasks.map(task => (
                                         <div key={task.id}>
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => { e.preventDefault(); setDetailTask(t); }} deadlineEnabled={data.deadlineEnabled} blocked={isTaskBlocked(task, data.tasks, data.columns)} />
                                         </div>
                                       ))}
                                     </div>
@@ -988,7 +999,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                                     <div className="grid gap-2 min-w-0" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
                                       {colTasks.map(task => (
                                         <div key={task.id} className="min-w-0">
-                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} />
+                                          <StickyNote task={task} labels={data.labels} storyColor={storyHexColor} onOpen={setDetailTask} onToggleCheck={toggleCheckItem} onRename={renameTask} onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, task: t })} deadlineEnabled={data.deadlineEnabled} blocked={isTaskBlocked(task, data.tasks, data.columns)} />
                                         </div>
                                       ))}
                                     </div>
@@ -1030,6 +1041,8 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         onClose={() => setDetailTask(null)}
         allLabels={data.labels}
         columns={data.columns}
+        allTasks={data.tasks}
+        stories={data.stories}
         customColors={data.customColors || []}
         deadlineEnabled={data.deadlineEnabled || false}
         onSave={saveTask}
@@ -1146,13 +1159,19 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           onMoveToColumn={(taskId, col) => {
             const lastCol = data.columns[data.columns.length - 1];
             const task = data.tasks.find(t => t.id === taskId);
+            const fromIdx = data.columns.indexOf(task?.status);
+            const toIdx = data.columns.indexOf(col);
+            // Block forward moves while dependencies are unmet
+            if (task && toIdx > fromIdx && isTaskBlocked(task, data.tasks, data.columns)) {
+              const blockers = blockingTasks(task, data.tasks, data.columns);
+              showToast(`🔒 Blockerad av: ${blockers.map(b => b.title).join(', ')}`, { type: 'error', duration: 3500 });
+              return;
+            }
             updateBoard(d => ({
               ...d,
               tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col } : t),
             }));
             if (task && col !== task.status) {
-              const fromIdx = data.columns.indexOf(task.status);
-              const toIdx = data.columns.indexOf(col);
               if (toIdx > fromIdx) {
                 gamDispatch('TASK_MOVED');
                 if (col === lastCol && task.status !== lastCol) {
