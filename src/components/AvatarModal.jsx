@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useGamification } from './GamificationContext';
-import { AVATAR_OPTIONS, CHARACTER_CLASSES, SHOP_ITEMS, RARITIES } from '../utils/shopData';
+import { AVATAR_OPTIONS, CHARACTER_CLASSES, SHOP_ITEMS, RARITIES, STARTER_GEAR } from '../utils/shopData';
 import { getLevelInfo } from '../utils/gamification';
 import AvatarRenderer from './AvatarRenderer';
+import RavenIcon from './RavenIcon';
 
 const EQUIP_SLOTS_LEFT = [
-  { key: 'equippedHead', label: 'Hjälm / Mask', icon: '⛑️', filter: i => i.category === 'equipment' && i.slot === 'head' },
-  { key: 'equippedArmor', label: 'Överkropp', icon: '🛡️', filter: i => i.slot === 'armor' },
-  { key: 'equippedWeapon', label: 'Vapen', icon: '⚔️', filter: i => i.category === 'equipment' && i.slot === 'weapon' },
-  { key: 'equippedBack', label: 'Mantel', icon: '🧥', filter: i => i.category === 'equipment' && i.slot === 'back' },
+  { key: 'equippedHead', label: 'Hjälm / Mask', icon: '⛑️', iconFile: 'pixel-weapons/pw_r2_c7.png', filter: i => i.slot === 'head' },
+  { key: 'equippedArmor', label: 'Överkropp', icon: '🛡️', iconFile: 'fc1860.png', filter: i => i.slot === 'armor' },
+  { key: 'equippedWeapon', label: 'Vapen', icon: '⚔️', iconFile: 'pixel-weapons/pw_r2_c0.png', filter: i => i.category === 'equipment' && i.slot === 'weapon' },
+  { key: 'equippedBack', label: 'Sköld / Mantel', icon: '🛡️', iconFile: 'pixel-weapons/pw_r2_c4.png', filter: i => i.slot === 'back' },
 ];
 
 const EQUIP_SLOTS_RIGHT = [
-  { key: 'equippedCompanion', label: 'Följeslagare', icon: '🐾', filter: i => i.category === 'companions' },
-  { key: 'equippedAura', label: 'Aura', icon: '✨', filter: i => i.category === 'auras' },
-  { key: 'equippedTitle', label: 'Titel', icon: '📛', filter: i => i.category === 'titles' },
-  { key: 'equippedBackground', label: 'Bakgrund', icon: '🏞️', filter: i => i.category === 'backgrounds' },
+  { key: 'equippedAura', label: 'Aura', icon: '✨', iconFile: 'fc385.png', filter: i => i.category === 'auras' },
+  { key: 'equippedTitle', label: 'Titel', icon: '📛', iconFile: 'fc15.png', filter: i => i.category === 'titles' },
+  { key: 'equippedBackground', label: 'Bakgrund', icon: '🏞️', iconFile: 'fc22.png', filter: i => i.category === 'backgrounds' },
 ];
 
 export default function AvatarModal({ open, onClose, onBack }) {
@@ -66,7 +66,7 @@ export default function AvatarModal({ open, onClose, onBack }) {
           <div className="space-y-2 w-[130px] shrink-0">
             {EQUIP_SLOTS_LEFT.map(slot => {
               const equipped = avatar[slot.key];
-              const item = equipped ? SHOP_ITEMS.find(i => i.id === equipped) : null;
+              const item = equipped ? (SHOP_ITEMS.find(i => i.id === equipped) || (STARTER_GEAR[equipped] && { id: equipped, ...STARTER_GEAR[equipped] })) : null;
               const isActive = activeSlot === slot.key;
               return (
                 <button
@@ -77,8 +77,8 @@ export default function AvatarModal({ open, onClose, onBack }) {
                     item ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                    {item ? item.icon : slot.icon}
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                    <RavenIcon iconFile={item?.iconFile || slot.iconFile} itemId={item?.id} size={24} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-medium text-gray-500 leading-tight">{slot.label}</p>
@@ -106,7 +106,7 @@ export default function AvatarModal({ open, onClose, onBack }) {
           <div className="space-y-2 w-[130px] shrink-0">
             {EQUIP_SLOTS_RIGHT.map(slot => {
               const equipped = avatar[slot.key];
-              const item = equipped ? SHOP_ITEMS.find(i => i.id === equipped) : null;
+              const item = equipped ? (SHOP_ITEMS.find(i => i.id === equipped) || (STARTER_GEAR[equipped] && { id: equipped, ...STARTER_GEAR[equipped] })) : null;
               const isActive = activeSlot === slot.key;
               return (
                 <button
@@ -117,8 +117,8 @@ export default function AvatarModal({ open, onClose, onBack }) {
                     item ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                    {item ? item.icon : slot.icon}
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${item ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                    <RavenIcon iconFile={item?.iconFile || slot.iconFile} itemId={item?.id} size={24} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-medium text-gray-500 leading-tight">{slot.label}</p>
@@ -168,7 +168,7 @@ export default function AvatarModal({ open, onClose, onBack }) {
                       isEquipped ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200'
                     }`}
                   >
-                    <span className="text-lg">{item.icon}</span>
+                    <RavenIcon iconFile={item.iconFile} itemId={item.id} size={24} />
                     <div>
                       <p className="text-xs font-bold text-gray-800">{item.name}</p>
                       <span className="text-[9px] font-bold" style={{ color: r.color }}>{r.label}</span>

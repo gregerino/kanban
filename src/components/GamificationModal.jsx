@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useGamification } from './GamificationContext';
-import { SHOP_ITEMS } from '../utils/shopData';
-
 const TABS = [
   { key: 'overview', label: 'Översikt', icon: '⚔️' },
   { key: 'achievements', label: 'Achievements', icon: '🏆' },
@@ -10,7 +8,7 @@ const TABS = [
   { key: 'stats', label: 'Statistik', icon: '📊' },
 ];
 
-export default function GamificationModal({ open, onClose, onOpenShop, onOpenAvatar, onOpenDungeon }) {
+export default function GamificationModal({ open, onClose, onOpenShop, onOpenDungeon }) {
   const { levelInfo, state, achievements, dailyQuests } = useGamification();
   const [tab, setTab] = useState('overview');
 
@@ -18,14 +16,9 @@ export default function GamificationModal({ open, onClose, onOpenShop, onOpenAva
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
-  // Active bonuses (equipped armor perk + active potion perks)
+  // Active bonuses (active potion perks)
   const now = Date.now();
   const bonuses = [];
-  const equippedArmor = state.avatar?.equippedArmor;
-  const armorItem = equippedArmor ? SHOP_ITEMS.find(i => i.id === equippedArmor) : null;
-  if (armorItem?.armorPerk?.type === 'xp_boost') {
-    bonuses.push({ icon: '🛡️', label: armorItem.name, value: `+${Math.round(armorItem.armorPerk.value * 100)}% XP` });
-  }
   (state.activePerks || []).forEach(p => {
     if (p.type === 'xp_boost' && (p.expiresAt > now || p.expiresAt === Infinity)) {
       bonuses.push({ icon: '🧪', label: 'XP-dryck', value: `+${Math.round(p.value * 100)}% XP` });
@@ -52,9 +45,6 @@ export default function GamificationModal({ open, onClose, onOpenShop, onOpenAva
           <div className="border-t border-gray-100 my-2 pt-2 space-y-1">
             <button onClick={onOpenShop} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors text-left">
               <span className="text-base">🛒</span>Shop
-            </button>
-            <button onClick={onOpenAvatar} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-indigo-700 hover:bg-indigo-50 transition-colors text-left">
-              <span className="text-base">🎭</span>Avatar
             </button>
             <button onClick={onOpenDungeon} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors text-left">
               <span className="text-base">🏰</span>Dungeon

@@ -1,6 +1,4 @@
 import { useGamification } from './GamificationContext';
-import AvatarRenderer from './AvatarRenderer';
-import { SHOP_ITEMS } from '../utils/shopData';
 
 export default function GamificationBar({ onClick }) {
   const { enabled, levelInfo, state } = useGamification();
@@ -8,17 +6,14 @@ export default function GamificationBar({ onClick }) {
 
   const R = 16;
   const CIRC = 2 * Math.PI * R;
-  const equippedArmor = state.avatar?.equippedArmor;
-  const armorItem = equippedArmor ? SHOP_ITEMS.find(i => i.id === equippedArmor) : null;
-  const armorPerkPct = armorItem?.armorPerk?.type === 'xp_boost' ? Math.round(armorItem.armorPerk.value * 100) : 0;
 
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors group"
+      className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
       title="Gamification"
     >
-      {/* Mini avatar with XP level-ring */}
+      {/* Level ring with class icon */}
       <div className="relative w-9 h-9 shrink-0">
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
           <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(120,120,130,0.25)" strokeWidth="2.5" />
@@ -34,17 +29,14 @@ export default function GamificationBar({ onClick }) {
             </linearGradient>
           </defs>
         </svg>
-        <div className="absolute inset-[3.5px] rounded-full overflow-hidden bg-white">
-          <AvatarRenderer avatar={state.avatar} size={29} showBackground={false} />
+        <div className="absolute inset-[3.5px] rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <span className="text-white text-sm font-black">{levelInfo.level}</span>
         </div>
-        <span className="absolute -bottom-1 -right-1 bg-indigo-500 text-white text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center ring-2 ring-white">
-          {levelInfo.level}
-        </span>
       </div>
 
-      {/* Level + stats (XP progress is shown by the ring around the avatar) */}
+      {/* Level + stats */}
       <div className="hidden md:flex flex-col min-w-[90px] gap-0.5">
-        <span className="text-[10px] font-bold text-gray-700">Lv.{levelInfo.level} {levelInfo.title}</span>
+        <span className="text-[10px] font-bold text-gray-700 dark:text-gray-200">Lv.{levelInfo.level} {levelInfo.title}</span>
         <div className="flex items-center justify-between">
           <span className="text-[9px] text-gray-400">{state.totalXP} XP</span>
           <div className="flex items-center gap-1.5">
@@ -57,12 +49,6 @@ export default function GamificationBar({ onClick }) {
               <span className="flex items-center gap-0.5 text-orange-500">
                 <span className="text-[10px]">🔥</span>
                 <span className="text-[9px] font-bold">{state.currentStreak}</span>
-              </span>
-            )}
-            {armorPerkPct > 0 && (
-              <span className="flex items-center gap-0.5 text-emerald-500" title={`${armorItem.name}: +${armorPerkPct}% XP`}>
-                <span className="text-[10px]">🛡️</span>
-                <span className="text-[9px] font-bold">+{armorPerkPct}%</span>
               </span>
             )}
           </div>

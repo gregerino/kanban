@@ -1,5 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { CHARACTER_CLASSES } from '../utils/shopData';
+import { loadSpriteSheet, drawCell } from '../utils/spriteLoader';
+import {
+  getBasePath, getOutfitPath, getHairPath, getEquipmentPath, getHatPath,
+  HAIR_STYLE_TO_TYPE, EQUIPMENT_SPRITE_MAP,
+} from '../utils/manaSeedConfig';
 
 const K = '#1a1a2e';
 
@@ -1151,36 +1156,90 @@ const BACKGROUND_SCENES = {
 
 export default function AvatarRenderer({ avatar, size = 200, showBackground = true }) {
   const canvasRef = useRef(null);
+  const spritesRef = useRef({});
+  const [spriteGen, setSpriteGen] = useState(0);
+
+  const cls = useMemo(
+    () => CHARACTER_CLASSES.find(c => c.id === avatar?.class) || CHARACTER_CLASSES[0],
+    [avatar?.class],
+  );
+
+  const resolved = useMemo(() => {
+    if (!avatar) return null;
+    const sg = cls.startGear || {};
+    const weaponId = avatar.equippedWeapon || sg.weapon || null;
+    const headId = avatar.equippedHead || sg.head || null;
+    const hasWeaponSprite = !!(weaponId && EQUIPMENT_SPRITE_MAP[weaponId]);
+    const hatInfo = headId ? getHatPath(headId) : null;
+    return {
+      skin: avatar.skinTone || '#fde2c4',
+      hair: avatar.hairColor || '#2c1810',
+      eye: avatar.eyeColor || '#4a3728',
+      expr: avatar.expression || 'neutral',
+      hairStyle: avatar.hairStyle || 'short',
+      armorId: avatar.equippedArmor || sg.armor || null,
+      weaponId,
+      headId,
+      backId: avatar.equippedBack || sg.back || null,
+      hasWeaponSprite,
+      hatInfo,
+    };
+  }, [avatar, cls]);
+
+  const sheetPaths = useMemo(() => {
+    if (!resolved) return {};
+    const { skin, hairStyle, hair, weaponId, hasWeaponSprite, hatInfo } = resolved;
+    const paths = {
+      base: getBasePath(skin, hasWeaponSprite),
+      outfit: getOutfitPath(hasWeaponSprite),
+    };
+    const hp = getHairPath(hairStyle, hair, hasWeaponSprite);
+    if (hp) paths.hair = hp;
+    if (weaponId) {
+      const wp = getEquipmentPath(weaponId);
+      if (wp) paths.weapon = wp;
+    }
+    if (hatInfo) paths.hat = hatInfo.path;
+    return paths;
+  }, [resolved]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const entries = Object.entries(sheetPaths);
+    if (entries.length === 0) return;
+    Promise.all(
+      entries.map(([key, path]) =>
+        loadSpriteSheet(path).then(img => [key, img]).catch(() => [key, null]),
+      ),
+    ).then(results => {
+      if (cancelled) return;
+      const next = {};
+      for (const [key, img] of results) next[key] = img;
+      spritesRef.current = next;
+      setSpriteGen(n => n + 1);
+    });
+    return () => { cancelled = true; };
+  }, [sheetPaths]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !avatar) return;
+    if (!canvas || !avatar || !resolved) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 64, 64);
 
-    const skin = avatar.skinTone || '#fde2c4';
-    const hair = avatar.hairColor || '#2c1810';
-    const eye = avatar.eyeColor || '#4a3728';
-    const expr = avatar.expression || 'neutral';
-    const hairStyle = avatar.hairStyle || 'short';
+    const {
+      skin, hair, eye, expr, hairStyle,
+      armorId, weaponId, headId, backId, hasWeaponSprite, hatInfo,
+    } = resolved;
+    const sprites = spritesRef.current;
 
-    const cls = CHARACTER_CLASSES.find(c => c.id === avatar.class) || CHARACTER_CLASSES[0];
-    const sg = cls.startGear || {};
-    const armorId = avatar.equippedArmor || sg.armor || null;
-    const weaponId = avatar.equippedWeapon || sg.weapon || null;
-    const headId = avatar.equippedHead || sg.head || null;
-    const backId = avatar.equippedBack || sg.back || null;
-
-    // Background: equipped scene takes priority (shown on big AND mini avatar);
-    // otherwise the default night scene only appears in full previews.
     const bgId = avatar.equippedBackground;
     const bgScene = bgId && BACKGROUND_SCENES[bgId];
-    const hasBackground = !!bgScene || showBackground;
+    const hasBg = !!bgScene || showBackground;
     if (bgScene) bgScene(ctx);
     else if (showBackground) drawBackground64(ctx);
 
-    // Soft elliptical ground shadow to anchor the character
-    if (hasBackground) {
+    if (hasBg) {
       const cx = 31.5, cy = 60.5, rx = 11, ry = 2.6;
       for (let r = 57; r <= 63; r++) {
         for (let c = 19; c <= 44; c++) {
@@ -1194,34 +1253,60 @@ export default function AvatarRenderer({ avatar, size = 200, showBackground = tr
       }
     }
 
-    const layers = [];
-
-    if (backId && BACK_SPRITES_64[backId]) layers.push(...BACK_SPRITES_64[backId]());
-
-    layers.push(...bodySprite64(skin));
-
-    if (armorId && ARMOR_SPRITES_64[armorId]) layers.push(...ARMOR_SPRITES_64[armorId]());
-
-    if (weaponId && WEAPON_SPRITES_64[weaponId]) layers.push(...WEAPON_SPRITES_64[weaponId]());
-
-    layers.push(...faceSprite64(eye, expr));
-
-    const hairGen = HAIR_SPRITES_64[hairStyle] || HAIR_SPRITES_64.short;
-    layers.push(...hairGen(hair));
-
-    if (headId && HEAD_SPRITES_64[headId]) layers.push(...HEAD_SPRITES_64[headId]());
-
-    if (avatar.equippedCompanion && COMPANION_PIXELS_64[avatar.equippedCompanion]) {
-      layers.push(...COMPANION_PIXELS_64[avatar.equippedCompanion]());
-    }
-
-    for (const [r, c, color] of layers) {
-      if (color && r >= 0 && r < 64 && c >= 0 && c < 64) {
-        ctx.fillStyle = color;
-        ctx.fillRect(c, r, 1, 1);
+    function paintPixels(pixels) {
+      for (const [r, c, color] of pixels) {
+        if (color && r >= 0 && r < 64 && c >= 0 && c < 64) {
+          ctx.fillStyle = color;
+          ctx.fillRect(c, r, 1, 1);
+        }
       }
     }
-  }, [avatar, showBackground]);
+
+    // Layer order: back → body → outfit → armor → weapon → face → hair → hat → companion
+    if (backId && BACK_SPRITES_64[backId]) paintPixels(BACK_SPRITES_64[backId]());
+
+    if (sprites.base) {
+      drawCell(ctx, sprites.base, 0, 0);
+    } else {
+      paintPixels(bodySprite64(skin));
+    }
+
+    if (sprites.outfit) {
+      drawCell(ctx, sprites.outfit, 0, 0);
+    }
+
+    if (armorId && ARMOR_SPRITES_64[armorId]) paintPixels(ARMOR_SPRITES_64[armorId]());
+
+    if (sprites.weapon) {
+      drawCell(ctx, sprites.weapon, 0, 0);
+    } else if (weaponId && WEAPON_SPRITES_64[weaponId]) {
+      paintPixels(WEAPON_SPRITES_64[weaponId]());
+    }
+
+    if (!sprites.base) {
+      paintPixels(faceSprite64(eye, expr));
+    }
+
+    const hideHair = hatInfo?.hidesHair;
+    if (!hideHair) {
+      if (sprites.hair) {
+        drawCell(ctx, sprites.hair, 0, 0);
+      } else {
+        const hairGen = HAIR_SPRITES_64[hairStyle] || HAIR_SPRITES_64.short;
+        paintPixels(hairGen(hair));
+      }
+    }
+
+    if (sprites.hat) {
+      drawCell(ctx, sprites.hat, 0, 0);
+    } else if (headId && HEAD_SPRITES_64[headId]) {
+      paintPixels(HEAD_SPRITES_64[headId]());
+    }
+
+    if (avatar.equippedCompanion && COMPANION_PIXELS_64[avatar.equippedCompanion]) {
+      paintPixels(COMPANION_PIXELS_64[avatar.equippedCompanion]());
+    }
+  }, [avatar, showBackground, resolved, spriteGen]);
 
   return (
     <canvas

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { useGamification } from './GamificationContext';
-import { SHOP_ITEMS, SHOP_CATEGORIES, RARITIES, openChest as rollChest } from '../utils/shopData';
+import { SHOP_ITEMS, SHOP_CATEGORIES, RARITIES } from '../utils/shopData';
+import RavenIcon from './RavenIcon';
 
 function GoldCoin({ size = 16 }) {
   return (
@@ -16,7 +17,6 @@ function GoldCoin({ size = 16 }) {
 export default function ShopModal({ open, onClose, onBack }) {
   const { state, dispatch } = useGamification();
   const [category, setCategory] = useState('perks');
-  const [chestReward, setChestReward] = useState(null);
 
   const owned = state.inventory || [];
   const items = SHOP_ITEMS.filter(i => i.category === category);
@@ -25,19 +25,11 @@ export default function ShopModal({ open, onClose, onBack }) {
   const dealCount = (catId) => SHOP_ITEMS.filter(i =>
     i.category === catId &&
     state.coins >= i.cost &&
-    !(owned.includes(i.id) && !i.perkType && i.category !== 'chests')
+    !(owned.includes(i.id) && !i.perkType)
   ).length;
 
   const handleBuy = (item) => {
     if (state.coins < item.cost) return;
-    if (item.category === 'chests') {
-      // Roll reward locally so we can show it immediately
-      const reward = rollChest(item.id, owned);
-      if (!reward) return;
-      dispatch('OPEN_CHEST', { chestId: item.id, cost: item.cost });
-      setChestReward(reward);
-      return;
-    }
     if (item.perkType) {
       dispatch('PURCHASE_PERK', { perk: item, cost: item.cost });
     } else {
@@ -67,7 +59,7 @@ export default function ShopModal({ open, onClose, onBack }) {
                   category === c.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <span className="text-base">{c.icon}</span>
+                <RavenIcon iconFile={c.iconFile} size={20} className="shrink-0" />
                 <span className="truncate flex-1">{c.name}</span>
                 {deals > 0 && (
                   <span className="shrink-0 text-[9px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5" title={`${deals} föremål du har råd med`}>
@@ -84,7 +76,7 @@ export default function ShopModal({ open, onClose, onBack }) {
           <div className="grid grid-cols-2 gap-2">
             {items.map(item => {
               const r = RARITIES[item.rarity] || RARITIES.common;
-              const isOwned = owned.includes(item.id) && !item.perkType && item.category !== 'chests';
+              const isOwned = owned.includes(item.id) && !item.perkType;
               const canAfford = state.coins >= item.cost;
 
               return (
@@ -94,7 +86,7 @@ export default function ShopModal({ open, onClose, onBack }) {
                   style={{ borderColor: r.color + '40', background: r.bgColor }}
                 >
                   <div className="flex items-start justify-between">
-                    <span className="text-2xl">{item.icon}</span>
+                    <RavenIcon iconFile={item.iconFile} itemId={item.id} size={32} />
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: r.color, background: r.color + '20' }}>{r.label}</span>
                   </div>
                   <div>
@@ -113,7 +105,7 @@ export default function ShopModal({ open, onClose, onBack }) {
                           canAfford ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        {item.category === 'chests' ? 'Öppna' : 'Köp'}
+                        Köp
                       </button>
                     )}
                   </div>
@@ -126,25 +118,6 @@ export default function ShopModal({ open, onClose, onBack }) {
           )}
         </div>
       </div>
-
-      {/* Chest reward popup */}
-      {chestReward && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50" onClick={() => setChestReward(null)}>
-          <div className="bg-white rounded-2xl p-6 text-center shadow-2xl animate-in zoom-in max-w-xs" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">{chestReward.type === 'coins' ? '💰' : chestReward.item?.icon || '📦'}</p>
-            <p className="text-lg font-bold text-gray-800">
-              {chestReward.type === 'coins' ? `${chestReward.amount} Coins!` : chestReward.item?.name || 'Föremål'}
-            </p>
-            {chestReward.item && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block" style={{
-                color: RARITIES[chestReward.item.rarity]?.color,
-                background: RARITIES[chestReward.item.rarity]?.color + '20'
-              }}>{RARITIES[chestReward.item.rarity]?.label}</span>
-            )}
-            <button onClick={() => setChestReward(null)} className="mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium w-full">Stäng</button>
-          </div>
-        </div>
-      )}
     </Modal>
   );
 }

@@ -25,7 +25,7 @@ import GamificationModal from './components/GamificationModal';
 import DungeonTimer from './components/DungeonTimer';
 import XPNotification from './components/XPNotification';
 import ShopModal from './components/ShopModal';
-import AvatarModal from './components/AvatarModal';
+// AvatarModal removed
 import ToastProvider, { useToast } from './components/ToastContext';
 import { useTheme } from './components/ThemeContext';
 import LevelUpCelebration from './components/LevelUpCelebration';
@@ -87,7 +87,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [gamificationModal, setGamificationModal] = useState(false);
   const [dungeonTimerOpen, setDungeonTimerOpen] = useState(false);
   const [shopModal, setShopModal] = useState(false);
-  const [avatarModal, setAvatarModal] = useState(false);
+  // avatarModal removed
   const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
   const { showToast } = useToast();
   const { theme, toggleTheme } = useTheme();
@@ -1092,11 +1092,9 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         open={gamificationModal}
         onClose={() => setGamificationModal(false)}
         onOpenShop={() => { setGamificationModal(false); setShopModal(true); }}
-        onOpenAvatar={() => { setGamificationModal(false); setAvatarModal(true); }}
         onOpenDungeon={() => { setGamificationModal(false); setDungeonTimerOpen(true); }}
       />
       <ShopModal open={shopModal} onClose={() => setShopModal(false)} onBack={() => { setShopModal(false); setGamificationModal(true); }} />
-      <AvatarModal open={avatarModal} onClose={() => setAvatarModal(false)} onBack={() => { setAvatarModal(false); setGamificationModal(true); }} />
       <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} onBack={() => { setDungeonTimerOpen(false); setGamificationModal(true); }} />
       <XPNotification />
       <LevelUpCelebration />

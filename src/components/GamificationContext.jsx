@@ -2,10 +2,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import {
   loadGamificationState, saveGamificationState, getLevelInfo,
   onTaskCompleted, onTaskMoved, onStoryCompleted, onDungeonCleared, onComment, onBoardCleared,
-  onPurchaseItem, onPurchasePerk, onOpenChest, onAvatarUpdate, onQuestReroll, cleanExpiredPerks,
+  onPurchaseItem, onPurchasePerk, onAvatarUpdate, onQuestReroll, cleanExpiredPerks,
   consumeNotifications, getDailyQuests, ACHIEVEMENTS,
 } from '../utils/gamification';
-import { SHOP_ITEMS, openChest as rollChest } from '../utils/shopData';
 import { supabase } from '../utils/supabase';
 
 const GamificationCtx = createContext(null);
@@ -66,13 +65,6 @@ export default function GamificationProvider({ children, enabled, user }) {
           const localInv = new Set(localState.inventory || []);
           const cloudInv = new Set(cloudState.inventory || []);
           merged.inventory = [...new Set([...localInv, ...cloudInv])];
-
-          // Use the avatar with more equipment
-          const cloudAvatar = cloudState.avatar || {};
-          const localAvatar = localState.avatar || {};
-          const cloudEquipCount = [cloudAvatar.equippedHead, cloudAvatar.equippedArmor, cloudAvatar.equippedWeapon, cloudAvatar.equippedBack, cloudAvatar.equippedCompanion].filter(Boolean).length;
-          const localEquipCount = [localAvatar.equippedHead, localAvatar.equippedArmor, localAvatar.equippedWeapon, localAvatar.equippedBack, localAvatar.equippedCompanion].filter(Boolean).length;
-          merged.avatar = cloudEquipCount >= localEquipCount ? cloudAvatar : localAvatar;
 
           merged.pendingNotifications = [];
 
@@ -168,13 +160,6 @@ export default function GamificationProvider({ children, enabled, user }) {
         case 'BOARD_CLEARED': return onBoardCleared(prev);
         case 'PURCHASE_ITEM': return onPurchaseItem(prev, payload.itemId, payload.cost);
         case 'PURCHASE_PERK': return onPurchasePerk(prev, payload.perk, payload.cost);
-        case 'OPEN_CHEST': {
-          const reward = rollChest(payload.chestId, prev.inventory || []);
-          if (!reward) return prev;
-          const next = onOpenChest(prev, payload.cost, reward);
-          next._lastChestReward = reward;
-          return next;
-        }
         case 'UPDATE_AVATAR': return onAvatarUpdate(prev, payload);
         case 'QUEST_REROLL': return onQuestReroll(prev);
         default: return prev;
