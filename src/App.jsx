@@ -235,12 +235,20 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   // Task CRUD
   const saveTask = (task) => {
     let isNew = false;
+    const lastCol = data.columns[data.columns.length - 1];
+    const oldTask = data.tasks.find(t => t.id === task.id);
+    const isCompleting = task.status === lastCol && oldTask && oldTask.status !== lastCol;
+    const taskToSave = isCompleting ? { ...task, completedAt: Date.now() } : task;
     updateBoard(d => {
-      const idx = d.tasks.findIndex(t => t.id === task.id);
+      const idx = d.tasks.findIndex(t => t.id === taskToSave.id);
       const tasks = [...d.tasks];
-      if (idx >= 0) tasks[idx] = task; else { tasks.push(task); isNew = true; }
+      if (idx >= 0) tasks[idx] = taskToSave; else { tasks.push(taskToSave); isNew = true; }
       return { ...d, tasks };
     });
+    if (isCompleting) {
+      window.dispatchEvent(new Event('task-completed-confetti'));
+      gamDispatch('TASK_COMPLETED', taskToSave);
+    }
     showToast(isNew ? 'Uppgift skapad' : 'Ändringar sparade', { type: 'success' });
   };
   const deleteTask = (id) => {
@@ -324,9 +332,10 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           showToast(`🔒 Blockerad av: ${blockers.map(b => b.title).join(', ')}`, { type: 'error', duration: 3500 });
           return;
         }
+        const isCompleting = status === lastCol && task?.status !== lastCol;
         updateBoard(d => ({
           ...d,
-          tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId } : t),
+          tasks: d.tasks.map(t => t.id === taskId ? { ...t, status, storyId, ...(isCompleting ? { completedAt: Date.now() } : {}) } : t),
         }));
         // Gamification: XP only when moving forward (higher column index)
         if (task && status !== task.status) {
@@ -334,7 +343,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           const toIdx = cur.columns.indexOf(status);
           if (toIdx > fromIdx) {
             gamDispatch('TASK_MOVED');
-            if (status === lastCol && task.status !== lastCol) {
+            if (isCompleting) {
               window.dispatchEvent(new Event('task-completed-confetti'));
               gamDispatch('TASK_COMPLETED', task);
               const storyTasks = cur.tasks.filter(t => t.storyId === storyId);
@@ -801,9 +810,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                         const rowColor = STORY_ROW_COLORS[storyIdx % STORY_ROW_COLORS.length];
                         const storyHexColor = storyColorMap[story.id];
                         const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
+                        const isLastCol = col === lastCol;
                         const colTasks = storyFilteredTasks
                           .filter(t => t.status === col)
-                          .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
+                          .sort(isLastCol
+                            ? (a, b) => (b.completedAt || 0) - (a.completedAt || 0)
+                            : (a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
                         const doneTasks = storyFilteredTasks.filter(t => t.status === lastCol);
                         const activeTasks = storyFilteredTasks.filter(t => t.status !== lastCol);
 
@@ -960,10 +972,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                         <div className="flex">
                           {data.columns.map(col => {
                             const PRIO_ORDER = { Legendary: 0, Epic: 1, Rare: 2, Common: 3, '': 4 };
+                            const isLastCol = col === lastCol;
                             const colTasks = storyFilteredTasks
                               .filter(t => t.status === col)
-                              .sort((a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
-                            const isLastCol = col === lastCol;
+                              .sort(isLastCol
+                                ? (a, b) => (b.completedAt || 0) - (a.completedAt || 0)
+                                : (a, b) => (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4));
                             return (
                               <DropZone key={col} storyId={story.id} col={col}>
                                 {isLastCol ? (
@@ -1168,14 +1182,16 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
               showToast(`🔒 Blockerad av: ${blockers.map(b => b.title).join(', ')}`, { type: 'error', duration: 3500 });
               return;
             }
+            const isCompleting = col === lastCol && task?.status !== lastCol;
             updateBoard(d => ({
               ...d,
-              tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col } : t),
+              tasks: d.tasks.map(t => t.id === taskId ? { ...t, status: col, ...(isCompleting ? { completedAt: Date.now() } : {}) } : t),
             }));
             if (task && col !== task.status) {
               if (toIdx > fromIdx) {
                 gamDispatch('TASK_MOVED');
-                if (col === lastCol && task.status !== lastCol) {
+                if (isCompleting) {
+                  window.dispatchEvent(new Event('task-completed-confetti'));
                   gamDispatch('TASK_COMPLETED', task);
                   const storyTasks = data.tasks.filter(t => t.storyId === task.storyId);
                   const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
