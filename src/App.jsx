@@ -29,6 +29,7 @@ import ShopModal from './components/ShopModal';
 import ToastProvider, { useToast } from './components/ToastContext';
 import { useTheme } from './components/ThemeContext';
 import LevelUpCelebration from './components/LevelUpCelebration';
+import TaskConfetti from './components/TaskConfetti';
 
 function DropZone({ storyId, col, children }) {
   const ref = useRef(null);
@@ -334,6 +335,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           if (toIdx > fromIdx) {
             gamDispatch('TASK_MOVED');
             if (status === lastCol && task.status !== lastCol) {
+              window.dispatchEvent(new Event('task-completed-confetti'));
               gamDispatch('TASK_COMPLETED', task);
               const storyTasks = cur.tasks.filter(t => t.storyId === storyId);
               const allDone = storyTasks.every(t => t.id === taskId ? true : t.status === lastCol);
@@ -1098,6 +1100,7 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
       <DungeonTimer open={dungeonTimerOpen} onClose={() => setDungeonTimerOpen(false)} onBack={() => { setDungeonTimerOpen(false); setGamificationModal(true); }} />
       <XPNotification />
       <LevelUpCelebration />
+      <TaskConfetti />
       <UpdateChecker />
       {/* Copy board modal */}
       {copyBoardModal && (
