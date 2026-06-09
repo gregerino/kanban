@@ -111,9 +111,12 @@ function ConnectionLine({ conn, nodes, onDelete, onEditLabel, dark }) {
 
 /* ─── Resize handle ─── */
 function ResizeHandle({ nodeId, side, zoom, onResize }) {
-  const cursors = { se: 'nwse-resize', sw: 'nesw-resize', ne: 'nesw-resize', nw: 'nwse-resize', e: 'ew-resize', s: 'ns-resize' };
+  const cursors = { se: 'nwse-resize', sw: 'nesw-resize', ne: 'nesw-resize', nw: 'nwse-resize', e: 'ew-resize', s: 'ns-resize', n: 'ns-resize', w: 'ew-resize' };
   const posClass = {
     se: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
+    sw: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2',
+    ne: 'top-0 right-0 translate-x-1/2 -translate-y-1/2',
+    nw: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2',
     e: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2',
     s: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
   };
@@ -412,6 +415,9 @@ function FrameNode({ node, selected, onSelect, onMove, zoom, onResize, onInlineC
       {!node.locked && (
         <>
           <ResizeHandle nodeId={node.id} side="se" zoom={zoom} onResize={onResize} />
+          <ResizeHandle nodeId={node.id} side="sw" zoom={zoom} onResize={onResize} />
+          <ResizeHandle nodeId={node.id} side="ne" zoom={zoom} onResize={onResize} />
+          <ResizeHandle nodeId={node.id} side="nw" zoom={zoom} onResize={onResize} />
           <ResizeHandle nodeId={node.id} side="e" zoom={zoom} onResize={onResize} />
           <ResizeHandle nodeId={node.id} side="s" zoom={zoom} onResize={onResize} />
         </>
@@ -1118,14 +1124,15 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
       nodes: wb.nodes.map(n => {
         if (n.id !== id) return n;
         if (!resizeRef.current || resizeRef.current.id !== id) {
-          resizeRef.current = { id, w: n.w || (n.type === 'frame' ? 500 : n.type === 'image' ? 200 : n.type === 'sticky' ? 160 : 240), h: n.h || (n.type === 'frame' ? 400 : n.type === 'sticky' ? 120 : 0) };
+          resizeRef.current = { id, w: n.w || (n.type === 'frame' ? 500 : n.type === 'image' ? 200 : n.type === 'sticky' ? 160 : 240), h: n.h || (n.type === 'frame' ? 400 : n.type === 'sticky' ? 120 : 0), x: n.x, y: n.y };
         }
         const base = resizeRef.current;
-        let w = n.w || base.w, h = n.h || base.h;
-        if (side === 'se' || side === 'e') w = Math.max(100, base.w + dx);
-        if (side === 'se' || side === 's') h = Math.max(60, base.h + dy);
-        const updates = { w };
-        if (side === 'se' || side === 's') updates.h = h;
+        const updates = {};
+        if (side === 'se' || side === 'e' || side === 'ne') updates.w = Math.max(100, base.w + dx);
+        if (side === 'sw' || side === 'nw') { updates.w = Math.max(100, base.w - dx); updates.x = base.x + (base.w - updates.w); }
+        if (side === 'se' || side === 's' || side === 'sw') updates.h = Math.max(60, base.h + dy);
+        if (side === 'ne' || side === 'nw') { updates.h = Math.max(60, base.h - dy); updates.y = base.y + (base.h - updates.h); }
+        if (!('w' in updates)) updates.w = n.w || base.w;
         return { ...n, ...updates };
       }),
     }));
@@ -1388,12 +1395,12 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
-            Tillbaka
+          <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors" title="Tillbaka till boarden">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 010 10H7"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 6l-4 4 4 4"/></svg>
+            Tillbaka till board
           </button>
           <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">{data.name} — Whiteboard</h2>
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">{data.name} — Canvas</h2>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Add menu */}
@@ -1458,6 +1465,19 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
 
           <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
           <ZoomControl zoom={zoom} setZoom={setZoom} />
+
+          <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+          <button
+            onClick={() => document.documentElement.classList.toggle('dark')}
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+            title={isDark ? 'Ljust läge' : 'Mörkt läge'}
+          >
+            {isDark ? (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1548,7 +1568,7 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-              <p className="text-gray-400 text-sm font-medium">Tom whiteboard</p>
+              <p className="text-gray-400 text-sm font-medium">Tom canvas</p>
               <p className="text-gray-300 dark:text-gray-600 text-xs mt-1">Använd "Lägg till" för att skapa noder, post-its eller frames</p>
               <button onClick={() => setTemplateModal(true)} className="mt-3 text-xs text-indigo-500 hover:text-indigo-600 font-medium">Eller välj en mall →</button>
             </div>
