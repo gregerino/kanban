@@ -1,35 +1,54 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { uid } from '../utils/helpers';
 import { PRIORITIES, PRIORITY_FLAG_COLORS } from '../utils/constants';
 
-// ─── Dot pattern background ───
+/* ─── helpers ─── */
 const DOT_BG = {
   backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
   backgroundSize: '24px 24px',
 };
 
-// ─── SVG connection line between two nodes ───
+// Compress image to max dimension & JPEG quality to avoid localStorage blow-up
+function compressImage(dataUrl, maxDim = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxDim || h > maxDim) {
+        const r = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * r);
+        h = Math.round(h * r);
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback
+    img.src = dataUrl;
+  });
+}
+
+/* ─── SVG connection line ─── */
 function ConnectionLine({ from, to, nodes, onDelete }) {
   const a = nodes.find(n => n.id === from);
   const b = nodes.find(n => n.id === to);
   if (!a || !b) return null;
-  const aw = a.type === 'image' ? 200 : a.type === 'freetext' ? 100 : 240;
-  const bw = b.type === 'image' ? 200 : b.type === 'freetext' ? 100 : 240;
-  const ah = a.type === 'image' ? 100 : a.type === 'freetext' ? 20 : 50;
-  const bh = b.type === 'image' ? 100 : b.type === 'freetext' ? 20 : 50;
+  const aw = a.w || (a.type === 'image' ? 200 : a.type === 'freetext' ? 100 : 240);
+  const bw = b.w || (b.type === 'image' ? 200 : b.type === 'freetext' ? 100 : 240);
+  const ah = a.h || (a.type === 'image' ? 100 : a.type === 'freetext' ? 20 : 80);
+  const bh = b.h || (b.type === 'image' ? 100 : b.type === 'freetext' ? 20 : 80);
   const x1 = a.x + aw / 2, y1 = a.y + ah;
   const x2 = b.x + bw / 2, y2 = b.y + bh;
   const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-  // Curved line
   const dx = x2 - x1, dy = y2 - y1;
   const cx = mx + dy * 0.15, cy = my - dx * 0.15;
   return (
     <g className="group/conn">
       <path d={`M${x1},${y1} Q${cx},${cy} ${x2},${y2}`} fill="none" stroke="#a5b4fc" strokeWidth="2.5" className="transition-colors group-hover/conn:stroke-indigo-500" />
-      {/* Arrow head */}
       <circle cx={x2} cy={y2} r="4" fill="#a5b4fc" className="transition-colors group-hover/conn:fill-indigo-500" />
       {onDelete && (
-        <g transform={`translate(${mx},${my})`} className="cursor-pointer opacity-0 group-hover/conn:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); onDelete(from, to); }}>
+        <g transform={`translate(${mx},${my})`} className="cursor-pointer opacity-0 group-hover/conn:opacity-100 transition-opacity" onClick={e => { e.stopPropagation(); onDelete(from, to); }}>
           <circle r="11" fill="white" stroke="#e5e7eb" strokeWidth="1.5" />
           <text textAnchor="middle" dy="4.5" fontSize="13" fill="#ef4444" fontWeight="bold">×</text>
         </g>
@@ -38,37 +57,176 @@ function ConnectionLine({ from, to, nodes, onDelete }) {
   );
 }
 
-// ─── Node types on the whiteboard ───
+/* ─── Resize handle (corner) ─── */
+function ResizeHandle({ nodeId, side, zoom, onResize }) {
+  const cursors = { se: 'nwse-resize', sw: 'nesw-resize', ne: 'nesw-resize', nw: 'nwse-resize', e: 'ew-resize', s: 'ns-resize' };
+  const posClass = {
+    se: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
+    e: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2',
+    s: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
+  };
+  const onDown = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const onMv = (ev) => {
+      const dx = (ev.clientX - startX) / zoom;
+      const dy = (ev.clientY - startY) / zoom;
+      onResize(nodeId, side, dx, dy);
+    };
+    const onUp = () => { window.removeEventListener('pointermove', onMv); window.removeEventListener('pointerup', onUp); };
+    window.addEventListener('pointermove', onMv);
+    window.addEventListener('pointerup', onUp);
+  };
+  return (
+    <div
+      className={`absolute w-3 h-3 bg-indigo-500 rounded-full opacity-0 group-hover/node:opacity-60 hover:!opacity-100 z-20 ${posClass[side] || ''}`}
+      style={{ cursor: cursors[side] || 'nwse-resize' }}
+      onPointerDown={onDown}
+    />
+  );
+}
 
-// Standard box node
-function BoxNode({ node, selected, onSelect, onMove, onDoubleClick, connecting, onStartConnect, zoom }) {
+/* ─── Inline editable text ─── */
+function InlineEdit({ value, onChange, placeholder, className, multiline, style }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef(null);
+
+  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => { if (editing && ref.current) { ref.current.focus(); ref.current.select?.(); } }, [editing]);
+
+  const commit = () => { setEditing(false); if (draft !== value) onChange(draft); };
+
+  if (editing) {
+    if (multiline) {
+      return (
+        <textarea
+          ref={ref}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+          className={`${className} bg-white/80 border border-indigo-300 rounded px-1 py-0.5 outline-none resize-none`}
+          style={style}
+          rows={3}
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+        />
+      );
+    }
+    return (
+      <input
+        ref={ref}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+        className={`${className} bg-white/80 border border-indigo-300 rounded px-1 py-0.5 outline-none`}
+        style={style}
+        onClick={e => e.stopPropagation()}
+        onPointerDown={e => e.stopPropagation()}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} cursor-text rounded px-1 py-0.5 hover:bg-gray-50/60 transition-colors`}
+      style={style}
+      onClick={e => { e.stopPropagation(); setEditing(true); }}
+      onPointerDown={e => e.stopPropagation()}
+    >
+      {value || <span className="text-gray-300 italic">{placeholder}</span>}
+    </div>
+  );
+}
+
+/* ─── Node context menu (right-click) ─── */
+function NodeContextMenu({ pos, node, onClose, onEdit, onDelete, onDuplicate, onChangeColor }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const k = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('mousedown', h);
+    window.addEventListener('keydown', k);
+    return () => { window.removeEventListener('mousedown', h); window.removeEventListener('keydown', k); };
+  }, [onClose]);
+
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
+
+  return (
+    <div ref={ref} className="fixed bg-white rounded-xl shadow-2xl border border-gray-100 py-1 min-w-[170px] z-[250] animate-in fade-in" style={{ left: pos.x, top: pos.y }}>
+      <button onClick={() => { onEdit(node); onClose(); }} className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+        Redigera
+      </button>
+      <button onClick={() => { onDuplicate(node); onClose(); }} className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Duplicera
+      </button>
+      <div className="px-3 py-2">
+        <p className="text-[10px] font-medium text-gray-400 mb-1.5">Färg</p>
+        <div className="flex flex-wrap gap-1">
+          {COLORS.map(c => (
+            <button key={c} onClick={() => { onChangeColor(node.id, c); onClose(); }} className={`w-5 h-5 rounded-full hover:scale-125 transition-transform ${node.color === c ? 'ring-2 ring-offset-1 ring-gray-600' : ''}`} style={{ background: c }} />
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-gray-100 my-0.5" />
+      <button onClick={() => { onDelete(node.id); onClose(); }} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Ta bort
+      </button>
+    </div>
+  );
+}
+
+/* ─── Box node ─── */
+function BoxNode({ node, selected, onSelect, onMove, onDoubleClick, connecting, onStartConnect, zoom, onResize, onInlineChange, onContextMenu }) {
+  const startRef = useRef(null);
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect(node.id);
-    const startX = e.clientX, startY = e.clientY;
-    const origX = node.x, origY = node.y;
-    const onMv = (ev) => { onMove(node.id, origX + (ev.clientX - startX) / zoom, origY + (ev.clientY - startY) / zoom); };
+    startRef.current = { x: e.clientX, y: e.clientY, ox: node.x, oy: node.y };
+    const onMv = (ev) => {
+      const s = startRef.current;
+      onMove(node.id, s.ox + (ev.clientX - s.x) / zoom, s.oy + (ev.clientY - s.y) / zoom);
+    };
     const onUp = () => { window.removeEventListener('pointermove', onMv); window.removeEventListener('pointerup', onUp); };
     window.addEventListener('pointermove', onMv);
     window.addEventListener('pointerup', onUp);
   };
 
   const color = node.color || '#6366f1';
+  const w = node.w || 240;
+  const h = node.h || undefined; // auto-height by default
   const hasFiles = (node.files || []).length > 0;
 
   return (
     <div
-      className={`absolute select-none rounded-xl border-2 shadow-lg bg-white transition-shadow hover:shadow-xl ${selected ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
-      style={{ left: node.x, top: node.y, width: 240, minHeight: 80, borderColor: color + '60', zIndex: selected ? 10 : 1 }}
+      className={`group/node absolute select-none rounded-xl border-2 shadow-lg bg-white transition-shadow hover:shadow-xl ${selected ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
+      style={{ left: node.x, top: node.y, width: w, minHeight: h || 80, borderColor: color + '60', zIndex: selected ? 10 : 1 }}
       onPointerDown={onPointerDown}
-      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(node); }}
+      onDoubleClick={e => { e.stopPropagation(); onDoubleClick(node); }}
+      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node); }}
     >
       <div className="h-1.5 rounded-t-[10px]" style={{ background: color }} />
       <div className="px-3 py-2">
-        <p className="text-sm font-semibold text-gray-800 truncate">{node.title || 'Namnlös'}</p>
-        {node.text && <p className="text-xs text-gray-500 mt-1 line-clamp-3 whitespace-pre-wrap">{node.text}</p>}
-        {/* Labels */}
+        <InlineEdit
+          value={node.title || ''}
+          onChange={v => onInlineChange(node.id, 'title', v)}
+          placeholder="Namnlös"
+          className="text-sm font-semibold text-gray-800 w-full truncate"
+        />
+        <InlineEdit
+          value={node.text || ''}
+          onChange={v => onInlineChange(node.id, 'text', v)}
+          placeholder="Lägg till beskrivning..."
+          className="text-xs text-gray-500 mt-1 w-full line-clamp-3 whitespace-pre-wrap"
+          multiline
+        />
         {node.labels?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {node.labels.map(l => (
@@ -91,23 +249,26 @@ function BoxNode({ node, selected, onSelect, onMove, onDoubleClick, connecting, 
           )}
         </div>
       </div>
-      {/* Connect handles */}
-      <button className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md hover:bg-indigo-600 transition-all hover:scale-110" style={{ opacity: selected || connecting ? 1 : 0 }} onPointerDown={(e) => { e.stopPropagation(); onStartConnect(node.id); }} title="Koppla">
+      {/* Connect handle */}
+      <button className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md hover:bg-indigo-600 transition-all hover:scale-110" style={{ opacity: selected || connecting ? 1 : 0 }} onPointerDown={e => { e.stopPropagation(); onStartConnect(node.id); }} title="Koppla">
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
       </button>
+      {/* Resize handles */}
+      <ResizeHandle nodeId={node.id} side="se" zoom={zoom} onResize={onResize} />
+      <ResizeHandle nodeId={node.id} side="e" zoom={zoom} onResize={onResize} />
+      <ResizeHandle nodeId={node.id} side="s" zoom={zoom} onResize={onResize} />
     </div>
   );
 }
 
-// Freetext node
-function FreetextNode({ node, selected, onSelect, onMove, onDoubleClick, zoom }) {
+/* ─── Freetext node ─── */
+function FreetextNode({ node, selected, onSelect, onMove, onDoubleClick, zoom, onInlineChange, onContextMenu }) {
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect(node.id);
-    const startX = e.clientX, startY = e.clientY;
-    const origX = node.x, origY = node.y;
-    const onMv = (ev) => { onMove(node.id, origX + (ev.clientX - startX) / zoom, origY + (ev.clientY - startY) / zoom); };
+    const startX = e.clientX, startY = e.clientY, ox = node.x, oy = node.y;
+    const onMv = (ev) => { onMove(node.id, ox + (ev.clientX - startX) / zoom, oy + (ev.clientY - startY) / zoom); };
     const onUp = () => { window.removeEventListener('pointermove', onMv); window.removeEventListener('pointerup', onUp); };
     window.addEventListener('pointermove', onMv);
     window.addEventListener('pointerup', onUp);
@@ -115,50 +276,61 @@ function FreetextNode({ node, selected, onSelect, onMove, onDoubleClick, zoom })
   const fontSize = node.fontSize || 16;
   return (
     <div
-      className={`absolute select-none cursor-move ${selected ? 'ring-2 ring-indigo-400 ring-offset-2 rounded-lg' : ''}`}
+      className={`group/node absolute select-none cursor-move ${selected ? 'ring-2 ring-indigo-400 ring-offset-2 rounded-lg' : ''}`}
       style={{ left: node.x, top: node.y, zIndex: selected ? 10 : 1 }}
       onPointerDown={onPointerDown}
-      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(node); }}
+      onDoubleClick={e => { e.stopPropagation(); onDoubleClick(node); }}
+      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node); }}
     >
-      <p className="whitespace-pre-wrap font-medium" style={{ fontSize, color: node.color || '#374151', maxWidth: 400 }}>{node.text || 'Dubbelklicka för att skriva...'}</p>
+      <InlineEdit
+        value={node.text || ''}
+        onChange={v => onInlineChange(node.id, 'text', v)}
+        placeholder="Dubbelklicka för att skriva..."
+        className="whitespace-pre-wrap font-medium"
+        style={{ fontSize, color: node.color || '#374151', maxWidth: 400 }}
+        multiline
+      />
     </div>
   );
 }
 
-// Image-only node
-function ImageNode({ node, selected, onSelect, onMove, onDoubleClick, onStartConnect, connecting, zoom }) {
+/* ─── Image node ─── */
+function ImageNode({ node, selected, onSelect, onMove, onDoubleClick, onStartConnect, connecting, zoom, onResize, onContextMenu }) {
   const onPointerDown = (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect(node.id);
-    const startX = e.clientX, startY = e.clientY;
-    const origX = node.x, origY = node.y;
-    const onMv = (ev) => { onMove(node.id, origX + (ev.clientX - startX) / zoom, origY + (ev.clientY - startY) / zoom); };
+    const startX = e.clientX, startY = e.clientY, ox = node.x, oy = node.y;
+    const onMv = (ev) => { onMove(node.id, ox + (ev.clientX - startX) / zoom, oy + (ev.clientY - startY) / zoom); };
     const onUp = () => { window.removeEventListener('pointermove', onMv); window.removeEventListener('pointerup', onUp); };
     window.addEventListener('pointermove', onMv);
     window.addEventListener('pointerup', onUp);
   };
+  const w = node.w || 200;
   return (
     <div
-      className={`absolute select-none rounded-xl overflow-hidden shadow-lg border-2 border-white hover:shadow-xl transition-shadow ${selected ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
-      style={{ left: node.x, top: node.y, zIndex: selected ? 10 : 1, maxWidth: 400 }}
+      className={`group/node absolute select-none rounded-xl overflow-hidden shadow-lg border-2 border-white hover:shadow-xl transition-shadow ${selected ? 'ring-2 ring-indigo-400 ring-offset-2' : ''}`}
+      style={{ left: node.x, top: node.y, zIndex: selected ? 10 : 1, width: w }}
       onPointerDown={onPointerDown}
-      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(node); }}
+      onDoubleClick={e => { e.stopPropagation(); onDoubleClick(node); }}
+      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node); }}
     >
       {node.image ? (
-        <img src={node.image} alt={node.title || ''} className="block max-w-[400px] max-h-[300px] object-contain" draggable={false} />
+        <img src={node.image} alt={node.title || ''} className="block w-full object-contain" style={{ maxHeight: 400 }} draggable={false} />
       ) : (
-        <div className="w-48 h-32 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">Ingen bild</div>
+        <div className="w-full h-32 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">Ingen bild</div>
       )}
       {node.title && <div className="px-2 py-1 bg-white/90 text-xs font-medium text-gray-700 truncate">{node.title}</div>}
-      <button className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md hover:bg-indigo-600" style={{ opacity: selected || connecting ? 1 : 0 }} onPointerDown={(e) => { e.stopPropagation(); onStartConnect(node.id); }} title="Koppla">
+      <button className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md hover:bg-indigo-600" style={{ opacity: selected || connecting ? 1 : 0 }} onPointerDown={e => { e.stopPropagation(); onStartConnect(node.id); }} title="Koppla">
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
       </button>
+      <ResizeHandle nodeId={node.id} side="se" zoom={zoom} onResize={onResize} />
+      <ResizeHandle nodeId={node.id} side="e" zoom={zoom} onResize={onResize} />
     </div>
   );
 }
 
-// Render any node type
+/* ─── Dispatch to correct node type ─── */
 function WhiteboardNode(props) {
   const { node } = props;
   if (node.type === 'freetext') return <FreetextNode {...props} />;
@@ -166,7 +338,7 @@ function WhiteboardNode(props) {
   return <BoxNode {...props} />;
 }
 
-// ─── Node detail / edit modal ───
+/* ─── Node detail / edit modal ─── */
 function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns, onCreateTask, onLinkTask, wbLabels, onUpdateLabels }) {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
@@ -208,16 +380,29 @@ function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns
     onClose();
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('Max filstorlek: 5 MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert('Max filstorlek: 10 MB'); return; }
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (isImage) {
-        setImage(ev.target.result);
-      } else {
-        setFiles(f => [...f, { id: uid(), name: file.name, type: file.type, data: ev.target.result, size: file.size }]);
+    reader.onload = async (ev) => {
+      try {
+        const raw = ev.target.result;
+        if (file.type?.startsWith('image/')) {
+          const compressed = await compressImage(raw, 800, 0.7);
+          if (isImage) {
+            setImage(compressed);
+          } else {
+            setFiles(f => [...f, { id: uid(), name: file.name, type: file.type, data: compressed, size: file.size }]);
+          }
+        } else {
+          // Non-image files — keep raw but check size
+          if (raw.length > 2 * 1024 * 1024) { alert('Filen är för stor att lagra (max ~2 MB för icke-bilder)'); return; }
+          setFiles(f => [...f, { id: uid(), name: file.name, type: file.type, data: raw, size: file.size }]);
+        }
+      } catch (err) {
+        console.error('File upload error:', err);
+        alert('Kunde inte ladda upp filen.');
       }
     };
     reader.readAsDataURL(file);
@@ -229,7 +414,6 @@ function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns
     if (!newLabelName.trim()) return;
     const nl = { id: uid(), name: newLabelName.trim(), color: newLabelColor };
     setLabels(l => [...l, nl]);
-    // Also add to whiteboard-level labels if not already exists
     if (!wbLabels.some(l => l.name === nl.name && l.color === nl.color)) {
       onUpdateLabels([...wbLabels, nl]);
     }
@@ -321,7 +505,6 @@ function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns
           {isBox && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Etiketter</label>
-              {/* Existing whiteboard labels */}
               {wbLabels.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {wbLabels.map(l => {
@@ -334,7 +517,6 @@ function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns
                   })}
                 </div>
               )}
-              {/* Add new label */}
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
                   {LABEL_COLORS.map(c => (
@@ -425,7 +607,7 @@ function NodeDetailModal({ node, open, onClose, onSave, onDelete, tasks, columns
   );
 }
 
-// ─── Task side panel ───
+/* ─── Task side panel ─── */
 function TaskSidePanel({ open, nodes, tasks, columns, onClose }) {
   if (!open) return null;
   const lastCol = columns[columns.length - 1];
@@ -473,7 +655,7 @@ function TaskSidePanel({ open, nodes, tasks, columns, onClose }) {
   );
 }
 
-// ─── Zoom input with presets ───
+/* ─── Zoom control ─── */
 function ZoomControl({ zoom, setZoom }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState('');
@@ -491,8 +673,7 @@ function ZoomControl({ zoom, setZoom }) {
       <button onClick={() => setZoom(z => Math.max(0.1, z - 0.15))} className="px-2 py-1 text-xs font-bold text-gray-500 hover:bg-gray-200 rounded">−</button>
       {editing ? (
         <input
-          autoFocus
-          value={val}
+          autoFocus value={val}
           onChange={e => setVal(e.target.value.replace(/\D/g, ''))}
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
@@ -504,7 +685,6 @@ function ZoomControl({ zoom, setZoom }) {
         </button>
       )}
       <button onClick={() => setZoom(z => Math.min(4, z + 0.15))} className="px-2 py-1 text-xs font-bold text-gray-500 hover:bg-gray-200 rounded">+</button>
-      {/* Preset dropdown */}
       <div className="relative group">
         <button className="px-1.5 py-1 text-xs text-gray-400 hover:bg-gray-200 rounded">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
@@ -519,7 +699,9 @@ function ZoomControl({ zoom, setZoom }) {
   );
 }
 
-// ─── Main Whiteboard component ───
+/* ═══════════════════════════════════════════
+   Main Whiteboard component
+   ═══════════════════════════════════════════ */
 export default function Whiteboard({ data, updateBoard, onClose }) {
   const canvasRef = useRef(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -529,7 +711,10 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
   const [connecting, setConnecting] = useState(null);
   const [connectLine, setConnectLine] = useState(null);
   const [taskPanel, setTaskPanel] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState(null); // { x, y, node }
   const isPanning = useRef(false);
+  // Track resize start size
+  const resizeRef = useRef(null);
 
   const wb = data.whiteboard || { nodes: [], connections: [], labels: [] };
   const nodes = wb.nodes || [];
@@ -543,10 +728,11 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     }));
   }, [updateBoard]);
 
-  // Pan — pointer drag on empty space
+  // Pan
   const onCanvasPointerDown = (e) => {
     if (e.target !== canvasRef.current && !e.target.classList?.contains('wb-bg')) return;
     if (connecting) { setConnecting(null); setConnectLine(null); return; }
+    setCtxMenu(null);
     isPanning.current = true;
     const startX = e.clientX, startY = e.clientY;
     const origPan = { ...pan };
@@ -559,28 +745,22 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     window.addEventListener('pointerup', onUp);
   };
 
-  // Wheel: two-finger trackpad pan + pinch zoom
+  // Wheel: trackpad pan + pinch zoom
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
     const onWheel = (e) => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
-        // Pinch-to-zoom (ctrl+scroll = trackpad pinch)
         const delta = e.deltaY > 0 ? 0.95 : 1.05;
         const rect = el.getBoundingClientRect();
         const mx = e.clientX - rect.left, my = e.clientY - rect.top;
         setZoom(z => {
           const nz = Math.max(0.1, Math.min(4, z * delta));
-          // Zoom toward cursor
-          setPan(p => ({
-            x: mx - (mx - p.x) * (nz / z),
-            y: my - (my - p.y) * (nz / z),
-          }));
+          setPan(p => ({ x: mx - (mx - p.x) * (nz / z), y: my - (my - p.y) * (nz / z) }));
           return nz;
         });
       } else {
-        // Two-finger pan (regular scroll = trackpad two-finger)
         setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       }
     };
@@ -588,7 +768,7 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Track mouse during connecting
+  // Connect line tracking
   useEffect(() => {
     if (!connecting) return;
     const onMove = (e) => {
@@ -600,7 +780,7 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     return () => window.removeEventListener('pointermove', onMove);
   }, [connecting, pan, zoom]);
 
-  // Add nodes
+  // Node CRUD
   const addNode = (type = 'box') => {
     const id = uid();
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -611,12 +791,11 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     const base = { id, x, y, color: '#6366f1' };
     let newNode;
     if (type === 'freetext') newNode = { ...base, type: 'freetext', text: '', fontSize: 16 };
-    else if (type === 'image') newNode = { ...base, type: 'image', title: '', image: '' };
-    else newNode = { ...base, type: 'box', title: '', text: '', notes: '', linkedTasks: [], files: [], labels: [] };
+    else if (type === 'image') newNode = { ...base, type: 'image', title: '', image: '', w: 200 };
+    else newNode = { ...base, type: 'box', title: '', text: '', notes: '', linkedTasks: [], files: [], labels: [], w: 240 };
     updateWB(wb => ({ ...wb, nodes: [...wb.nodes, newNode] }));
     setSelectedNode(id);
     if (type === 'freetext' || type === 'image') {
-      // Open edit immediately for freetext and image
       setTimeout(() => setEditNode(newNode), 50);
     }
   };
@@ -625,25 +804,61 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     updateWB(wb => ({ ...wb, nodes: wb.nodes.map(n => n.id === id ? { ...n, x, y } : n) }));
   }, [updateWB]);
 
+  // Resize handler — uses ref to track start w/h so delta-based
+  const handleResize = useCallback((id, side, dx, dy) => {
+    updateWB(wb => ({
+      ...wb,
+      nodes: wb.nodes.map(n => {
+        if (n.id !== id) return n;
+        // Initialize resize tracking
+        if (!resizeRef.current || resizeRef.current.id !== id) {
+          resizeRef.current = { id, w: n.w || (n.type === 'image' ? 200 : 240), h: n.h || 0 };
+        }
+        const base = resizeRef.current;
+        let w = n.w || base.w;
+        let h = n.h || base.h;
+        if (side === 'se' || side === 'e') w = Math.max(120, base.w + dx);
+        if (side === 'se' || side === 's') h = Math.max(60, base.h + dy);
+        const updates = { w };
+        if (side === 'se' || side === 's') updates.h = h;
+        return { ...n, ...updates };
+      }),
+    }));
+  }, [updateWB]);
+
+  // Reset resize ref on pointer up (globally)
+  useEffect(() => {
+    const onUp = () => { resizeRef.current = null; };
+    window.addEventListener('pointerup', onUp);
+    return () => window.removeEventListener('pointerup', onUp);
+  }, []);
+
+  // Inline title/text change directly on the box
+  const handleInlineChange = useCallback((id, field, value) => {
+    updateWB(wb => ({
+      ...wb,
+      nodes: wb.nodes.map(n => n.id === id ? { ...n, [field]: value } : n),
+    }));
+  }, [updateWB]);
+
   const startConnect = (fromId) => {
     if (connecting) {
       if (fromId !== connecting && !connections.some(c => (c.from === connecting && c.to === fromId) || (c.from === fromId && c.to === connecting))) {
         updateWB(wb => ({ ...wb, connections: [...wb.connections, { from: connecting, to: fromId }] }));
       }
-      setConnecting(null);
-      setConnectLine(null);
+      setConnecting(null); setConnectLine(null);
     } else {
       setConnecting(fromId);
     }
   };
 
   const handleNodeSelect = (id) => {
+    setCtxMenu(null);
     if (connecting && id !== connecting) {
       if (!connections.some(c => (c.from === connecting && c.to === id) || (c.from === id && c.to === connecting))) {
         updateWB(wb => ({ ...wb, connections: [...wb.connections, { from: connecting, to: id }] }));
       }
-      setConnecting(null);
-      setConnectLine(null);
+      setConnecting(null); setConnectLine(null);
     } else {
       setSelectedNode(id);
     }
@@ -662,12 +877,21 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     if (selectedNode === id) setSelectedNode(null);
   };
 
-  // Save node — also update editNode ref so task linking sees fresh data
+  const duplicateNode = (node) => {
+    const id = uid();
+    const copy = { ...node, id, x: node.x + 30, y: node.y + 30, linkedTasks: [] };
+    updateWB(wb => ({ ...wb, nodes: [...wb.nodes, copy] }));
+    setSelectedNode(id);
+  };
+
+  const changeNodeColor = (id, color) => {
+    updateWB(wb => ({ ...wb, nodes: wb.nodes.map(n => n.id === id ? { ...n, color } : n) }));
+  };
+
   const saveNode = (updated) => {
     updateWB(wb => ({ ...wb, nodes: wb.nodes.map(n => n.id === updated.id ? updated : n) }));
   };
 
-  // Link / unlink task — works on the live data so modal sees changes
   const linkTask = (nodeId, taskId, add) => {
     updateWB(wb => ({
       ...wb,
@@ -676,7 +900,6 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
         linkedTasks: add ? [...(n.linkedTasks || []), taskId] : (n.linkedTasks || []).filter(id => id !== taskId),
       } : n),
     }));
-    // Also update local editNode so the modal reflects the change immediately
     if (editNode && editNode.id === nodeId) {
       setEditNode(prev => ({
         ...prev,
@@ -699,7 +922,6 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
         nodes: (d.whiteboard?.nodes || []).map(n => n.id === nodeId ? { ...n, linkedTasks: [...(n.linkedTasks || []), taskId] } : n),
       },
     }));
-    // Update editNode too
     if (editNode && editNode.id === nodeId) {
       setEditNode(prev => ({ ...prev, linkedTasks: [...(prev.linkedTasks || []), taskId] }));
     }
@@ -715,12 +937,18 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     if (!rect) return;
     const minX = Math.min(...nodes.map(n => n.x));
     const minY = Math.min(...nodes.map(n => n.y));
-    const maxX = Math.max(...nodes.map(n => n.x + 260));
-    const maxY = Math.max(...nodes.map(n => n.y + 120));
+    const maxX = Math.max(...nodes.map(n => n.x + (n.w || 260)));
+    const maxY = Math.max(...nodes.map(n => n.y + (n.h || 120)));
     const w = maxX - minX + 100, h = maxY - minY + 100;
-    const newZoom = Math.min(rect.width / w, rect.height / h, 1.5);
-    setZoom(Math.max(0.2, newZoom));
-    setPan({ x: (rect.width - w * newZoom) / 2 - minX * newZoom + 50 * newZoom, y: (rect.height - h * newZoom) / 2 - minY * newZoom + 50 * newZoom });
+    const nz = Math.min(rect.width / w, rect.height / h, 1.5);
+    setZoom(Math.max(0.2, nz));
+    setPan({ x: (rect.width - w * nz) / 2 - minX * nz + 50 * nz, y: (rect.height - h * nz) / 2 - minY * nz + 50 * nz });
+  };
+
+  // Right-click handler for nodes
+  const handleNodeContextMenu = (e, node) => {
+    setCtxMenu({ x: e.clientX, y: e.clientY, node });
+    setSelectedNode(node.id);
   };
 
   // Keyboard
@@ -728,7 +956,8 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === 'Escape') {
-        if (connecting) { setConnecting(null); setConnectLine(null); }
+        if (ctxMenu) setCtxMenu(null);
+        else if (connecting) { setConnecting(null); setConnectLine(null); }
         else if (editNode) setEditNode(null);
         else onClose();
       }
@@ -736,7 +965,7 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [connecting, editNode, selectedNode, onClose]);
+  }, [connecting, editNode, selectedNode, ctxMenu, onClose]);
 
   const connectingNode = connecting ? nodes.find(n => n.id === connecting) : null;
 
@@ -753,7 +982,6 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
           <h2 className="text-sm font-bold text-gray-800">{data.name} — Whiteboard</h2>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Add menu */}
           <div className="relative group">
             <button className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
@@ -801,13 +1029,13 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
         )}
 
         <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', position: 'absolute', top: 0, left: 0 }}>
-          <svg className="wb-svg" style={{ position: 'absolute', top: 0, left: 0, width: '20000px', height: '20000px', pointerEvents: 'none', overflow: 'visible' }}>
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: '20000px', height: '20000px', pointerEvents: 'none', overflow: 'visible' }}>
             <g style={{ pointerEvents: 'auto' }}>
-              {connections.map((c, i) => (
+              {connections.map(c => (
                 <ConnectionLine key={`${c.from}-${c.to}`} from={c.from} to={c.to} nodes={nodes} onDelete={deleteConnection} />
               ))}
               {connectingNode && connectLine && (
-                <line x1={connectingNode.x + 120} y1={connectingNode.y + 40} x2={connectLine.x} y2={connectLine.y} stroke="#6366f1" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
+                <line x1={connectingNode.x + (connectingNode.w || 240) / 2} y1={connectingNode.y + 40} x2={connectLine.x} y2={connectLine.y} stroke="#6366f1" strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
               )}
             </g>
           </svg>
@@ -819,10 +1047,13 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
               selected={selectedNode === n.id}
               onSelect={handleNodeSelect}
               onMove={moveNode}
-              onDoubleClick={(n) => setEditNode(n)}
+              onDoubleClick={n => setEditNode(n)}
               connecting={!!connecting}
               onStartConnect={startConnect}
               zoom={zoom}
+              onResize={handleResize}
+              onInlineChange={handleInlineChange}
+              onContextMenu={handleNodeContextMenu}
             />
           ))}
         </div>
@@ -839,6 +1070,19 @@ export default function Whiteboard({ data, updateBoard, onClose }) {
 
         <TaskSidePanel open={taskPanel} nodes={nodes} tasks={data.tasks} columns={data.columns} onClose={() => setTaskPanel(false)} />
       </div>
+
+      {/* Node context menu */}
+      {ctxMenu && (
+        <NodeContextMenu
+          pos={{ x: ctxMenu.x, y: ctxMenu.y }}
+          node={ctxMenu.node}
+          onClose={() => setCtxMenu(null)}
+          onEdit={n => setEditNode(n)}
+          onDelete={deleteNode}
+          onDuplicate={duplicateNode}
+          onChangeColor={changeNodeColor}
+        />
+      )}
 
       <NodeDetailModal
         node={editNode}
