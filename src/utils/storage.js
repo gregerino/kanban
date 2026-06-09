@@ -49,8 +49,9 @@ function migrateBoard(d) {
   if (d.icon === undefined) d.icon = '';
   if (d.deadlineEnabled === undefined) d.deadlineEnabled = false;
   if (d.whiteboardEnabled === undefined) d.whiteboardEnabled = false;
-  if (!d.whiteboard) d.whiteboard = { nodes: [], connections: [], labels: [] };
+  if (!d.whiteboard) d.whiteboard = { nodes: [], connections: [], labels: [], groups: [] };
   if (d.whiteboard && !d.whiteboard.labels) d.whiteboard.labels = [];
+  if (d.whiteboard && !d.whiteboard.groups) d.whiteboard.groups = [];
   const PRIO_MIGRATE = { Low: 'Common', Medium: 'Rare', High: 'Epic', Critical: 'Legendary' };
   d.tasks = d.tasks.map(t => ({ ...t, priority: PRIO_MIGRATE[t.priority] || t.priority || '', comments: t.comments || [], color: t.color || '#fde68a', checklist: t.checklist || [], notes: t.notes || '', files: t.files || [] }));
   d.labels = (d.labels || []).map(l => {
@@ -101,5 +102,5 @@ export function saveActiveId(id) {
 }
 
 export function createEmptyBoard(name) {
-  return { id: uid(), name, icon: '', stories: [], tasks: [], labels: [], columns: DEFAULT_COLUMNS, customColors: [], backgroundImage: '', brainDumpLists: [], deadlineEnabled: false, whiteboardEnabled: false, whiteboard: { nodes: [], connections: [], labels: [] } };
+  return { id: uid(), name, icon: '', stories: [], tasks: [], labels: [], columns: DEFAULT_COLUMNS, customColors: [], backgroundImage: '', brainDumpLists: [], deadlineEnabled: false, whiteboardEnabled: false, whiteboard: { nodes: [], connections: [], labels: [], groups: [] } };
 }

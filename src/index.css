@@ -37,6 +37,9 @@ html.dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4), 0 8px 10px 
 html.dark ::-webkit-scrollbar-thumb { background: #4b4d54; }
 html.dark ::-webkit-scrollbar-thumb:hover { background: #5b5d64; }
 
+/* Whiteboard dark mode */
+html.dark .wb-bg { background-color: #1a1b1e !important; }
+
 .sticky-card {
   position: relative;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
