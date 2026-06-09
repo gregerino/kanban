@@ -1084,6 +1084,23 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         deadlineEnabled={data.deadlineEnabled || false}
         onSave={saveTask}
         onDelete={deleteTask}
+        boards={boards.filter(b => b.id !== activeId)}
+        onMoveToBoard={(taskId, targetBoardId) => {
+          const task = data.tasks.find(t => t.id === taskId);
+          if (!task) return;
+          const targetBoard = boards.find(b => b.id === targetBoardId);
+          if (!targetBoard) return;
+          updateBoard(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== taskId) }));
+          const targetStory = targetBoard.stories[0];
+          const targetCol = targetBoard.columns[0];
+          if (!targetStory) return;
+          setBoards(bs => bs.map(b => b.id === targetBoardId ? {
+            ...b,
+            tasks: [...b.tasks, { ...task, storyId: targetStory.id, status: targetCol }],
+          } : b));
+          showToast(`Flyttade "${task.title}" till ${targetBoard.name}`);
+          setDetailTask(null);
+        }}
       />
       <StoryModal
         story={storyModal.story}
@@ -1179,8 +1196,26 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           task={contextMenu.task}
           allLabels={data.labels}
           columns={data.columns}
+          boards={boards.filter(b => b.id !== activeId)}
           onOpen={setDetailTask}
           onDelete={deleteTask}
+          onMoveToBoard={(taskId, targetBoardId) => {
+            const task = data.tasks.find(t => t.id === taskId);
+            if (!task) return;
+            const targetBoard = boards.find(b => b.id === targetBoardId);
+            if (!targetBoard) return;
+            // Remove from current board
+            updateBoard(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== taskId) }));
+            // Add to target board (assign to first story & first column of target)
+            const targetStory = targetBoard.stories[0];
+            const targetCol = targetBoard.columns[0];
+            if (!targetStory) return;
+            setBoards(bs => bs.map(b => b.id === targetBoardId ? {
+              ...b,
+              tasks: [...b.tasks, { ...task, storyId: targetStory.id, status: targetCol }],
+            } : b));
+            showToast(`Flyttade "${task.title}" till ${targetBoard.name}`);
+          }}
           onToggleLabel={(taskId, labelId) => {
             updateBoard(d => ({
               ...d,

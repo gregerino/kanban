@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { PRIORITIES, PRIORITY_FLAG_COLORS } from '../utils/constants';
 
-export default function TaskContextMenu({ position, task, allLabels = [], columns = [], onDelete, onOpen, onToggleLabel, onMoveToColumn, onSetPriority, onClose }) {
+export default function TaskContextMenu({ position, task, allLabels = [], columns = [], boards = [], onDelete, onOpen, onToggleLabel, onMoveToColumn, onMoveToBoard, onSetPriority, onClose }) {
   const menuRef = useRef(null);
   const labelBtnRef = useRef(null);
   const moveBtnRef = useRef(null);
   const prioBtnRef = useRef(null);
+  const boardBtnRef = useRef(null);
   const [showLabels, setShowLabels] = useState(false);
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showPrio, setShowPrio] = useState(false);
+  const [showBoardMenu, setShowBoardMenu] = useState(false);
   const labelTimerRef = useRef(null);
   const moveTimerRef = useRef(null);
   const prioTimerRef = useRef(null);
+  const boardTimerRef = useRef(null);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -26,15 +29,19 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
       clearTimeout(labelTimerRef.current);
       clearTimeout(moveTimerRef.current);
       clearTimeout(prioTimerRef.current);
+      clearTimeout(boardTimerRef.current);
     };
   }, [onClose]);
 
-  const openLabels = () => { clearTimeout(labelTimerRef.current); setShowMoveMenu(false); setShowPrio(false); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
+  const closeAll = () => { setShowLabels(false); setShowMoveMenu(false); setShowPrio(false); setShowBoardMenu(false); };
+  const openLabels = () => { clearTimeout(labelTimerRef.current); closeAll(); labelTimerRef.current = setTimeout(() => setShowLabels(true), 250); };
   const closeLabels = () => { clearTimeout(labelTimerRef.current); labelTimerRef.current = setTimeout(() => setShowLabels(false), 150); };
-  const openMove = () => { clearTimeout(moveTimerRef.current); setShowLabels(false); setShowPrio(false); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
+  const openMove = () => { clearTimeout(moveTimerRef.current); closeAll(); moveTimerRef.current = setTimeout(() => setShowMoveMenu(true), 250); };
   const closeMove = () => { clearTimeout(moveTimerRef.current); moveTimerRef.current = setTimeout(() => setShowMoveMenu(false), 150); };
-  const openPrio = () => { clearTimeout(prioTimerRef.current); setShowLabels(false); setShowMoveMenu(false); prioTimerRef.current = setTimeout(() => setShowPrio(true), 250); };
+  const openPrio = () => { clearTimeout(prioTimerRef.current); closeAll(); prioTimerRef.current = setTimeout(() => setShowPrio(true), 250); };
   const closePrio = () => { clearTimeout(prioTimerRef.current); prioTimerRef.current = setTimeout(() => setShowPrio(false), 150); };
+  const openBoard = () => { clearTimeout(boardTimerRef.current); closeAll(); boardTimerRef.current = setTimeout(() => setShowBoardMenu(true), 250); };
+  const closeBoard = () => { clearTimeout(boardTimerRef.current); boardTimerRef.current = setTimeout(() => setShowBoardMenu(false), 150); };
 
   // Position the main menu, with max height for scrollability
   const [adjustedPos, setAdjustedPos] = useState({ x: position.x + 8, y: position.y - 8 });
@@ -239,6 +246,47 @@ export default function TaskContextMenu({ position, task, allLabels = [], column
             </button>
           ))}
         </div>
+      )}
+
+      {/* Move to board submenu */}
+      {boards.length > 0 && onMoveToBoard && (
+        <>
+          <div
+            ref={boardBtnRef}
+            onMouseEnter={openBoard}
+            onMouseLeave={closeBoard}
+          >
+            <button
+              onClick={() => { setShowBoardMenu(s => !s); setShowLabels(false); setShowMoveMenu(false); setShowPrio(false); }}
+              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              </svg>
+              Flytta till board
+              <svg className={`w-3 h-3 text-gray-400 ml-auto transition-transform ${showBoardMenu ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          {showBoardMenu && (
+            <div
+              style={getSubmenuPos(boardBtnRef)}
+              className="bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] max-h-[60vh] overflow-y-auto"
+              onMouseEnter={() => { clearTimeout(boardTimerRef.current); }}
+              onMouseLeave={closeBoard}
+            >
+              {boards.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => { onMoveToBoard(task.id, b.id); onClose(); }}
+                  className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  {b.icon && <span className="text-sm">{b.icon}</span>}
+                  <span className="text-xs truncate">{b.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <div className="border-t border-gray-100 my-0.5" />
