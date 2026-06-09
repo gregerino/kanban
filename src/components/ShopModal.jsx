@@ -19,6 +19,7 @@ export default function ShopModal({ open, onClose, onBack }) {
   const [category, setCategory] = useState('perks');
 
   const owned = state.inventory || [];
+  const equippedTitle = state.avatar?.equippedTitle || null;
   const items = SHOP_ITEMS.filter(i => i.category === category);
 
   // Count affordable items in a category that the user doesn't already own
@@ -36,6 +37,11 @@ export default function ShopModal({ open, onClose, onBack }) {
       if (owned.includes(item.id)) return;
       dispatch('PURCHASE_ITEM', { itemId: item.id, cost: item.cost });
     }
+  };
+
+  const handleEquipTitle = (item) => {
+    const newTitle = equippedTitle === item.id ? null : item.id;
+    dispatch('UPDATE_AVATAR', { equippedTitle: newTitle });
   };
 
   return (
@@ -96,7 +102,20 @@ export default function ShopModal({ open, onClose, onBack }) {
                   <div className="mt-auto flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-600 flex items-center gap-0.5"><GoldCoin size={12} /> {item.cost}</span>
                     {isOwned ? (
-                      <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Ägd</span>
+                      item.category === 'titles' ? (
+                        <button
+                          onClick={() => handleEquipTitle(item)}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
+                            equippedTitle === item.id
+                              ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                              : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                          }`}
+                        >
+                          {equippedTitle === item.id ? 'Equipped' : 'Equip'}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Ägd</span>
+                      )
                     ) : (
                       <button
                         onClick={() => handleBuy(item)}

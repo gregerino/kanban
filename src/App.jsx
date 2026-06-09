@@ -30,6 +30,8 @@ import ToastProvider, { useToast } from './components/ToastContext';
 import { useTheme } from './components/ThemeContext';
 import LevelUpCelebration from './components/LevelUpCelebration';
 import TaskConfetti from './components/TaskConfetti';
+import { SHOP_ITEMS, RARITIES } from './utils/shopData';
+import Whiteboard from './components/Whiteboard';
 
 function DropZone({ storyId, col, children }) {
   const ref = useRef(null);
@@ -88,9 +90,13 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
   const [gamificationModal, setGamificationModal] = useState(false);
   const [dungeonTimerOpen, setDungeonTimerOpen] = useState(false);
   const [shopModal, setShopModal] = useState(false);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   // avatarModal removed
-  const { dispatch: gamDispatch, enabled: gamEnabled } = useGamification();
+  const { dispatch: gamDispatch, enabled: gamEnabled, state: gamState } = useGamification();
   const { showToast } = useToast();
+  const equippedTitleItem = gamEnabled && gamState?.avatar?.equippedTitle
+    ? SHOP_ITEMS.find(i => i.id === gamState.avatar.equippedTitle)
+    : null;
   const { theme, toggleTheme } = useTheme();
   const boardMenuRef = useRef(null);
   const [copyBoardModal, setCopyBoardModal] = useState(null); // board object to copy
@@ -449,6 +455,9 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
             <div className="relative min-w-0" ref={boardMenuRef}>
               <button onClick={() => setBoardMenuOpen(o => !o)} className="flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors min-w-0">
                 <h1 className="text-base md:text-lg font-bold text-gray-800 truncate max-w-[120px] md:max-w-none">{data.name}</h1>
+                {equippedTitleItem && (() => { const r = RARITIES[equippedTitleItem.rarity] || RARITIES.common; return (
+                  <span className="hidden md:inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full ml-1 shrink-0" style={{ color: r.color, background: r.color + '18', border: `1px solid ${r.color}40` }}>{equippedTitleItem.name}</span>
+                ); })()}
                 <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${boardMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
               </button>
               {boardMenuOpen && (
@@ -583,6 +592,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
           {/* Desktop header buttons */}
           <div className="hidden md:flex items-center gap-2">
             {/* Shop/Avatar/Focus moved into GamificationModal */}
+            {data.whiteboardEnabled && (
+              <button onClick={() => setWhiteboardOpen(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Whiteboard">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                Whiteboard
+              </button>
+            )}
             <button onClick={() => setAnalyticsModal(true)} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1" title="Analys">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
               Analys
@@ -613,6 +628,12 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
                     <button onClick={() => { setGamificationModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                       <span className="text-base">⚔️</span>
                       Gamification
+                    </button>
+                  )}
+                  {data.whiteboardEnabled && (
+                    <button onClick={() => { setWhiteboardOpen(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                      Whiteboard
                     </button>
                   )}
                   <button onClick={() => { setAnalyticsModal(true); setMobileMenuOpen(false); }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -1090,6 +1111,8 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
         onSaveBoardIcon={saveBoardIcon}
         deadlineEnabled={data.deadlineEnabled || false}
         onSaveDeadlineEnabled={(v) => updateBoard(d => ({ ...d, deadlineEnabled: v }))}
+        whiteboardEnabled={data.whiteboardEnabled || false}
+        onSaveWhiteboardEnabled={(v) => updateBoard(d => ({ ...d, whiteboardEnabled: v }))}
         labels={data.labels}
         customColors={data.customColors || []}
         onSaveLabels={(labels) => updateBoard(d => ({ ...d, labels }))}
@@ -1146,6 +1169,9 @@ function AppInner({ gamificationEnabled, onToggleGamification }) {
             </div>
           </div>
         </>
+      )}
+      {whiteboardOpen && data.whiteboardEnabled && (
+        <Whiteboard data={data} updateBoard={updateBoard} onClose={() => setWhiteboardOpen(false)} />
       )}
       {contextMenu && (
         <TaskContextMenu
